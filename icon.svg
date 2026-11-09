@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="TransProof 莫比乌斯锁链">
+  <defs>
+    <linearGradient id="tpChain" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="0.45" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1e2f6b"/>
+    </linearGradient>
+    <linearGradient id="tpChainHi" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 莫比乌斯锁链环：一圈互相套接的链节环绕四周，带子在顶部扭转一次（单面） -->
+  <!-- 套接的链节：隔一个加粗/减细、前后面交叠，营造「锁链」立体互扣 -->
+  <g fill="none" stroke="url(#tpChain)" stroke-width="3.2" stroke-linecap="round">
+    <ellipse rx="5.8" ry="2.9" transform="translate(38 24) rotate(90)"/>
+    <ellipse rx="2.9" ry="5.8" transform="translate(34.6 15.4) rotate(45)" stroke="url(#tpChainHi)"/>
+    <ellipse rx="5.8" ry="2.9" transform="translate(26 11) rotate(15)"/>
+    <ellipse rx="2.9" ry="5.8" transform="translate(17 12.6) rotate(-30)" stroke="url(#tpChainHi)"/>
+    <ellipse rx="5.8" ry="2.9" transform="translate(10 21) rotate(75)"/>
+    <ellipse rx="2.9" ry="5.8" transform="translate(10.4 31) rotate(115)" stroke="url(#tpChainHi)"/>
+    <ellipse rx="5.8" ry="2.9" transform="translate(18 38.5) rotate(160)"/>
+    <ellipse rx="2.9" ry="5.8" transform="translate(28 38) rotate(205)" stroke="url(#tpChainHi)"/>
+    <ellipse rx="5.8" ry="2.9" transform="translate(36 32) rotate(250)"/>
+    <ellipse rx="2.9" ry="5.8" transform="translate(38.5 27) rotate(285)" stroke="url(#tpChainHi)"/>
+  </g>
+
+  <!-- 顶部扭转处：一个「翻面」的链节，标示莫比乌斯单面（正反连续） -->
+  <path d="M22 8.5 C26 6.5 31 7 34 10"
+        fill="none" stroke="url(#tpChainHi)" stroke-width="3.4" stroke-linecap="round"/>
+</svg>

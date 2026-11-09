@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234f8cff'/><text y='72' x='50' text-anchor='middle' font-size='62' fill='white' font-family='sans-serif'>译</text></svg>">
+<title>译校助手 · Translation Proofreader</title>
+<!-- TODO(v-next) 字体增强层：开关 FONT_CDN=true 时启用
+     - 仅加载拉丁子集（unicode-range: U+0000-00FF, U+2000-206F）IBM Plex Sans/Serif/Mono woff2
+     - 中文永不外链（体积过大 + 国内网络不可靠），永远走系统栈
+     - font-display:swap，避免阻塞首屏
+     - 失败时静默回落档 1（纯系统字体栈），不得影响渲染 -->
+<style>
+:root{
+  /* —— 四层分区字体（档1：纯系统栈，零下载/离线可用）—— */
+  /* A 界面层 */
+  --f-ui: "IBM Plex Sans","Inter","Helvetica Neue","Segoe UI",system-ui,
+          "Source Han Sans SC","Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  /* B 阅读层 */
+  --f-read:"IBM Plex Serif","Source Serif 4",Newsreader,Georgia,
+           "Source Han Serif SC","Noto Serif SC","Songti SC",SimSun,serif;
+  /* C 数据层 */
+  --f-mono:"IBM Plex Mono","JetBrains Mono","SF Mono",ui-monospace,
+           "Sarasa Mono SC","Sarasa Fixed SC","Source Han Sans SC","Noto Sans SC",monospace;
+  /* D 题注层 */
+  --f-quote:"Zhuque Fangsong",FangSong,STFangsong,KaiTi,STKaiti,
+            "EB Garamond","IBM Plex Serif",serif;
+  /* 字号阶梯（同屏不超过四档） */
+  --fs-meta:12px; --fs-ui:13px; --fs-sm:15px; --fs-body:16px;
+  --fs-h3:18px;   --fs-h2:22px; --fs-h1:28px;
+  /* 行高 */
+  --lh-ui:1.5; --lh-body:1.8; --lh-mono:1.6;
+  /* 开屏动画编排变量（本轮只参数化，时长逻辑零变化） */
+  --sp-dur:700ms;
+  --sp-ease:cubic-bezier(.22,.61,.36,1);
+  --sp-stagger:140ms;
+  --sp-total:1180ms;
+  --sp-d1:120ms; --sp-d2:260ms; --sp-d3:420ms; --sp-d4:580ms;
+
+  --bg:#1a1915; --bg2:#222019; --bg3:#2a281f; --bd:rgba(237,232,216,.12); --bd2:#4a4536;
+  --tx:#ede8d8; --tx2:#a89f8d; --tx3:#6e6756;
+  --ac:#d63a2c; --ac2:#b02f22; --ok:#ede8d8; --warn:#c9c0ac; --err:#d63a2c;
+  --pp:#d63a2c; --r:2px;
+  /* 明暗两套字重：暗底浅字降一档防光晕 */
+  --fw-strong:500; --fw-title:600;
+  --ok-tx:#ede8d8; --warn-tx:#c9c0ac; --pp-tx:#d63a2c; --ac-tx:#d63a2c; --err-tx:#d63a2c; --info-tx:#a89f8d;
+  --sh-sm:none; --sh:none; --sh-lg:none;
+  --grad-ac:#d63a2c; --grad-ok:#d63a2c; --grad-pp:#d63a2c;
+}
+:root[data-theme="light"]{
+  --bg:#ece5d6; --bg2:#f4efe1; --bg3:#e2dbc8; --bd:rgba(27,26,22,.15); --bd2:#9a8f75;
+  --tx:#1b1a16; --tx2:#5a5547; --tx3:#8a8271;
+  --ac:#d63a2c; --ac2:#b02f22; --ok:#1b1a16; --warn:#6f6754; --err:#d63a2c;
+  --pp:#d63a2c; --r:2px;
+  --fw-strong:600; --fw-title:700;
+  --ok-tx:#1b1a16; --warn-tx:#6f6754; --pp-tx:#d63a2c; --ac-tx:#d63a2c; --err-tx:#d63a2c; --info-tx:#5a5547;
+  --sh-sm:none; --sh:none; --sh-lg:none;
+  --grad-ac:#d63a2c; --grad-ok:#d63a2c; --grad-pp:#d63a2c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--tx);
+  font-family:var(--f-ui);font-size:var(--fs-ui);line-height:var(--lh-ui);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:var(--f-ui);font-size:13px;color:var(--tx);background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;outline:none;transition:border-color .15s,box-shadow .15s;text-align:left}
+input:focus,textarea:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(79,140,255,.18)}
+input::placeholder,textarea::placeholder{color:var(--tx3);opacity:.85}
+textarea{resize:vertical;line-height:1.75;width:100%;min-height:80px}
+/* 大文本工作框（原文/译文）走阅读层：书写感 */
+#src,#dst,#ts-src{font-family:var(--f-read);font-size:var(--fs-body);line-height:var(--lh-body);letter-spacing:.02em}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#4a5568}
+
+/* ---------- 文件输入条（P1 新增） ---------- */
+.file-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 4px;padding:8px 12px;background:var(--bg3);border:1px dashed var(--bd);border-radius:6px;font-size:12px;color:var(--tx2)}
+.file-bar.has-file{background:rgba(79,140,255,.06);border-style:solid;border-color:var(--ac);color:var(--tx)}
+.file-bar .fb-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.file-bar .fb-name .fb-meta{color:var(--tx3);font-weight:400;margin-left:8px;font-size:11px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.file-bar select{flex:0 0 auto;padding:4px 8px;font-size:12px;max-width:180px}
+.file-bar .btn{padding:4px 12px;font-size:12px}
+.file-bar .btn.x{padding:4px 8px;color:var(--tx3)}
+.file-bar .btn.x:hover{color:var(--err)}
+.file-bar input[type=range]{flex:0 0 90px}
+.file-bar .fb-spin{display:inline-block;width:12px;height:12px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:4px}
+.fb-progress{font-size:11px;color:var(--tx3);margin-left:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- 专有译词库（3.0 新增） ---------- */
+.g-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.g-toolbar .spacer{flex:1}
+.pm-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.pm-toolbar input[type=text]{flex:1;min-width:160px}
+.pm-entries{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:8px}
+.pm-entry{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;transition:.15s}
+.pm-entry:hover{border-color:var(--ac)}
+.pm-icon{font-size:24px;line-height:1;flex:0 0 36px;text-align:center}
+.pm-meta{flex:1;min-width:0}
+.pm-title{font-size:13.5px;font-weight:var(--fw-title);margin-bottom:4px}
+.pm-hint{font-size:11.5px;color:var(--tx3);line-height:1.5}
+.pm-rating{display:inline-flex;gap:4px;font-size:14px;cursor:pointer;user-select:none}
+.pm-rating span{opacity:.3;transition:.15s}
+.pm-rating span.on{opacity:1}
+.pm-rating span:hover{transform:scale(1.15)}
+.pm-empty{text-align:center;color:var(--tx3);padding:32px 0;font-size:13px}
+.pm-drop{padding:20px 12px;border:2px dashed var(--bd);border-radius:10px;text-align:center;cursor:pointer;transition:.15s;background:var(--bg2);min-height:90px}
+.pm-drop:hover,.pm-drop.drag{border-color:var(--ac);background:rgba(79,140,255,.05)}
+.pm-drop.on{border-style:solid;border-color:var(--ok);background:rgba(63,185,80,.05)}
+.pm-drop-title{font-size:13px;font-weight:var(--fw-title);margin-bottom:4px}
+.pm-drop-hint{font-size:11.5px;color:var(--tx3)}
+.pm-drop-name{font-size:12px;color:var(--ok);margin-top:8px;word-break:break-all}
+.g-filter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px}
+.g-filter input[type=text]{flex:1;min-width:160px}
+.g-filter select{padding:8px 8px;font-size:12.5px}
+table.g-table{width:100%;border-collapse:collapse;font-size:13px}
+table.g-table th{ text-align:left;padding:8px 12px;background:var(--bg2);border-bottom:2px solid var(--bd2);font-weight:var(--fw-strong);font-size:12px;color:var(--tx2);position:sticky;top:0;cursor:pointer;white-space:nowrap}
+table.g-table td{padding:8px 12px;border-bottom:1px solid var(--bd);vertical-align:top}
+table.g-table tr:hover td{background:var(--bg2)}
+table.g-table tr.sel td{background:rgba(79,140,255,.08)}
+.g-tag{display:inline-block;padding:0px 8px;border-radius:10px;font-size:11px;margin:0px 4px;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx2);cursor:pointer}
+.g-tag:hover{border-color:var(--ac)}
+.g-tag.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.g-tag.ghost{opacity:.55}
+.g-alias{font-size:11.5px;color:var(--tx3)}
+.g-src{font-size:11px;color:var(--tx3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-status{display:inline-block;padding:0px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.g-status.pending{background:rgba(210,153,34,.15);color:var(--warn)}
+.g-status.confirmed{background:rgba(63,185,80,.15);color:var(--ok)}
+.g-status.rejected{background:rgba(248,81,73,.15);color:var(--err)}
+.g-rec{font-size:11px;color:var(--tx3)}
+.g-rec .r{color:var(--ok);font-weight:var(--fw-strong)}
+.g-rec .a{color:var(--tx2)}
+.g-rec .b{color:var(--err);text-decoration:line-through}
+.g-stats{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--tx2);padding:8px 0}
+.g-stats b{color:var(--tx);font-size:14px}
+.g-empty{padding:40px 20px;text-align:center;color:var(--tx3)}
+.g-empty .big{font-size:34px;margin-bottom:12px}
+.g-preview{max-height:300px;overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:12px;font-size:12.5px}
+.g-preview table{width:100%;border-collapse:collapse}
+.g-preview th,.g-preview td{padding:4px 8px;border-bottom:1px solid var(--bd);text-align:left;font-size:12px}
+.g-batch{display:flex;gap:8px;align-items:center;background:var(--bg3);padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:12.5px}
+.g-batch button{padding:4px 12px;font-size:12px}
+.g-import-steps{display:flex;gap:8px;font-size:11.5px;color:var(--tx3);margin:8px 0 16px}
+.g-import-steps .s{padding:4px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--bd)}
+.g-import-steps .s.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.g-colmap{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.g-colmap .cm{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);min-width:120px}
+.g-colmap .cm label{font-size:11px;color:var(--tx3)}
+.g-colmap .cm select{font-size:12px;padding:4px}
+.g-collections-card{border:1px solid var(--bd);border-radius:8px;background:var(--bg2);margin-top:12px;padding:8px 12px}
+.g-collections-head{font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.g-collections-head .hint{font-weight:400}
+.g-col{display:flex;align-items:center;gap:8px;padding:4px 4px;border-bottom:1px solid var(--bd)}
+/* 术语集合卡片：左上角单字标签（BRIEF 3.5，纯 CSS 零 JS） */
+.g-col::before{content:'术';font-family:var(--f-mono);font-size:11px;line-height:1.4;padding:0 4px;border:1px solid var(--ac);color:var(--ac);border-radius:0;flex:0 0 auto;margin-right:-4px}
+.g-col:last-child{border-bottom:none}
+.g-col-chk{flex:0 0 auto}
+.g-col-name{flex:1;font-weight:500;display:flex;flex-direction:column}
+.g-col-meta{font-size:11px;color:var(--tx3);font-weight:400;margin-top:0px}
+.g-col-empty{color:var(--tx3);font-size:12px;padding:8px 4px}
+
+/* ---------- 顶栏 ---------- */
+header{
+  display:flex;align-items:center;gap:8px 12px;padding:8px 16px;
+  background:var(--bg2);border-bottom:1px solid var(--bd);flex-shrink:0;min-width:0;
+}
+.logo{display:flex;align-items:center;gap:8px;font-weight:var(--fw-title);font-size:15px;letter-spacing:.3px;flex-shrink:0}
+.logo .mark{
+  width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--ac),var(--pp));
+  display:grid;place-items:center;font-size:14px;font-weight:var(--fw-title);color:#fff;
+}
+.logo small{font-weight:400;color:var(--tx3);font-size:11px;margin-left:4px;letter-spacing:0;display:none}
+@media(max-width:768px){.logo small{display:none}}
+nav{display:flex;gap:4px;flex-wrap:wrap;flex-basis:100%;order:3;margin-left:0}
+nav button{
+  padding:8px 16px;border-radius:8px;font-size:13px;color:var(--tx2);transition:.18s;white-space:nowrap;
+  background:transparent;border:none;cursor:pointer;position:relative;
+}
+@media(max-width:768px){nav button{padding:4px 12px;font-size:12px}}
+nav button:hover{background:var(--bg3);color:var(--tx)}
+nav button.on{background:var(--bg3);color:var(--ac);font-weight:var(--fw-strong)}
+nav button.on::after{content:"";position:absolute;left:14px;right:14px;bottom:2px;height:2px;background:var(--grad-ac);border-radius:1px}
+.spacer{display:none}
+.badge{font-size:11px;padding:4px 8px;border-radius:20px;background:var(--bg3);color:var(--tx2);border:1px solid var(--bd);display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--tx3)}
+.dot.on{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.dot.err{background:var(--err)}
+
+/* ---------- 布局 ---------- */
+main{flex:1;overflow:hidden;position:relative}
+.page{display:none;height:100%;overflow-y:auto;padding:20px}
+.page.on{display:block}
+.wrap{max-width:1200px;margin:0 auto}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+
+/* ---------- 卡片 ---------- */
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:24px;box-shadow:var(--sh-sm);transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:#36404f}
+.card>h3{
+  font-size:13px;font-weight:var(--fw-title);padding:12px 16px;border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,rgba(79,140,255,.06) 0%,rgba(79,140,255,.02) 100%);
+  position:relative;
+}
+.card>h3::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--grad-ac);border-radius:2px}
+.card>h3 .hint{font-weight:400;color:var(--tx3);font-size:11.5px;margin-left:auto;letter-spacing:.2px}
+.card .body{padding:16px}
+
+/* ---------- 表单 ---------- */
+label.f{display:block;font-size:12px;color:var(--tx2);margin-bottom:4px;font-weight:500}
+.frow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.frow>div{flex:1;min-width:150px}
+.frow>div.wide{flex:2;min-width:240px}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;
+  background:var(--bg3);border:1px solid var(--bd2);color:var(--tx);transition:.18s;
+  display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+  box-shadow:var(--sh-sm);
+}
+.btn:hover{background:var(--bd);border-color:#4a5568;transform:translateY(-1px);box-shadow:var(--sh)}
+.btn:active{transform:translateY(0);box-shadow:var(--sh-sm)}
+.btn:disabled{opacity:.42;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.pri{background:var(--grad-ac);border-color:transparent;color:#fff;font-weight:var(--fw-strong)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.pur{background:var(--grad-pp);border-color:transparent;color:#fff;font-weight:var(--fw-strong)}
+.btn.pur:hover{background:#8b5cf6}
+.btn.sm{padding:4px 12px;font-size:12px}
+.btn.gray{background:transparent;border-color:var(--bd);color:var(--tx2)}
+.btn.gray:hover{color:var(--tx);border-color:var(--bd2)}
+
+/* ---------- 输出区 ---------- */
+.out{
+  background:var(--bg);border:1px solid var(--bd);border-radius:10px;
+  padding:20px;min-height:280px;max-height:640px;overflow-y:auto;
+  font-family:var(--f-read);font-size:var(--fs-body);line-height:var(--lh-body);letter-spacing:.02em;
+  white-space:pre-wrap;word-break:break-word;
+}
+.out:empty::before{content:attr(data-ph);color:var(--tx3);font-size:13px}
+.out h4{font-size:13px;color:var(--ac);margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+.out h4:first-child{margin-top:0}
+.out .seg{background:var(--bg3);border-left:3px solid var(--ac);padding:8px 12px;border-radius:0 5px 5px 0;margin:8px 0}
+.out .note{border-left:3px solid var(--warn);padding:4px 12px;margin:8px 0;color:var(--tx2)}
+.out .term{border-left:3px solid var(--pp);padding:4px 12px;margin:8px 0}
+.out em{color:var(--tx3);font-style:normal;font-size:12px}
+.out code{background:var(--bg3);padding:0px 4px;border-radius:3px;font-size:12px;color:var(--pp)}
+
+/* ---------- 统计 ---------- */
+/* ---------- 单字类型标签（屋顶现视研式：分类别、颜色表级别，11px mono + 1px 边框 + 直角） ---------- */
+.t-tag{display:inline-block;font-family:var(--f-mono);font-size:11px;line-height:1.4;padding:0 4px;margin-right:8px;border:1px solid currentColor;border-radius:0;vertical-align:1px;letter-spacing:0}
+.eb-wrap{margin:0 0 12px}
+.eb-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.eb-bar input{padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-family:var(--f-mono);font-size:12px}
+.eb-ta{width:100%;min-height:340px;font-family:var(--f-read);font-size:16px;line-height:var(--lh-body);padding:20px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);resize:vertical}
+/* 结果区批注条目：按错误类别上色（--err 危 / --warn 检议 / --ac 术），不引入新颜色 */
+#out li[data-err]{position:relative}
+#out li[data-err]:not([data-err=""])::before{content:attr(data-tag);display:inline-block;font-family:var(--f-mono);font-size:11px;line-height:1.4;padding:0 4px;margin-right:8px;border:1px solid currentColor;border-radius:0;vertical-align:1px}
+#out li[data-err="误译"]::before,#out li[data-err="漏译"]::before,#out li[data-err="增译"]::before{color:var(--err)}
+#out li[data-err="术语不一致"]::before{color:var(--ac)}
+#out li[data-err="逻辑关系"]::before,#out li[data-err="歧义"]::before,#out li[data-err="标点格式"]::before,#out li[data-err="中式英语"]::before,#out li[data-err="语体不当"]::before{color:var(--warn)}
+.stats{display:flex;gap:20px;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:12px;color:var(--tx3);padding:8px 16px;border-top:1px solid var(--bd);background:var(--bg3);flex-wrap:wrap;margin-top:12px;border-radius:0 0 10px 10px}
+.stats b{color:var(--tx);font-weight:var(--fw-strong);font-size:12.5px}
+
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;padding:8px 12px;font-size:11.5px;font-weight:var(--fw-strong);color:var(--tx2);
+  border-bottom:1px solid var(--bd);background:var(--bg3);white-space:nowrap;
+}
+td{padding:8px 12px;border-bottom:1px solid var(--bd);vertical-align:top}
+tr:hover td{background:var(--bg3)}
+td input,td select{width:100%;padding:4px 8px;font-size:12.5px;background:transparent;border-color:transparent}
+td input:hover,td select:hover{border-color:var(--bd)}
+td input:focus,td select:focus{background:var(--bg3);border-color:var(--ac)}
+.twrap{max-height:520px;overflow-y:auto;border:1px solid var(--bd);border-radius:6px}
+.twrap thead th{position:sticky;top:0;z-index:2}
+.empty{text-align:center;padding:40px 20px;color:var(--tx3);font-size:13px}
+
+/* ---------- 标签 ---------- */
+.tag{display:inline-block;font-size:11px;padding:4px 8px;border-radius:20px;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx2);margin:4px}
+.tag.c{color:var(--ac);border-color:#2d5aa8}
+.tag.w{color:var(--warn);border-color:#7a5c15}
+.tag.p{color:var(--pp);border-color:#5b3fa0}
+
+/* ---------- 翻译工作台流程编号徽章（v4.2） ---------- */
+.step-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:var(--fw-strong);color:#fff;
+  background:var(--grad-ac);margin-right:12px;box-shadow:0 2px 6px rgba(79,140,255,.35);letter-spacing:.5px;
+}
+.card.step-2 > h3 .step-num{background:var(--grad-pp);box-shadow:0 2px 6px rgba(163,113,247,.35)}
+.card.step-3 > h3 .step-num{background:var(--grad-ok);box-shadow:0 2px 6px rgba(63,185,80,.35)}
+
+/* ---------- 校对决策面板（v4.2.1） ---------- */
+.dp-wrap{margin:12px 16px;border:1px solid var(--bd);border-radius:10px;background:linear-gradient(180deg,rgba(79,140,255,.05),transparent);overflow:hidden}
+.dp-head{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:var(--fw-strong)}
+.dp-head .step-num{width:20px;height:20px;font-size:11px;margin-right:4px}
+.dp-item{padding:12px 16px;border-bottom:1px dashed var(--bd)}
+.dp-item:last-child{border-bottom:none}
+.dp-term{font-size:13px;font-weight:var(--fw-strong);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dp-term .orig{color:var(--tx2);font-weight:500}
+.dp-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dp-chip{padding:4px 12px;border-radius:18px;border:1px solid var(--bd2);background:var(--bg3);font-size:12.5px;cursor:pointer;transition:.15s;user-select:none}
+.dp-chip:hover{border-color:var(--ac);transform:translateY(-1px)}
+.dp-chip.sel{background:var(--grad-ac);border-color:transparent;color:#fff;font-weight:var(--fw-strong);box-shadow:0 2px 8px rgba(79,140,255,.4)}
+.dp-chip.rec::after{content:"荐";font-size:11px;background:rgba(255,255,255,.22);border-radius:6px;padding:0px 4px;margin-left:4px;vertical-align:1px}
+.dp-chip input.dp-custom{display:none}
+.dp-foot{display:flex;gap:12px;align-items:center;padding:12px 16px;background:var(--bg3);flex-wrap:wrap}
+.dp-count{font-size:12.5px;color:var(--tx2)}
+.dp-hint{font-size:11.5px;color:var(--tx3)}
+
+/* ---------- 智能配图助手（v4.4 关键词标签） ---------- */
+.img-tag{padding:4px 16px;border-radius:18px;border:1px solid var(--bd2);background:var(--bg3);font-size:12.5px;cursor:pointer;transition:.15s;user-select:none;color:var(--tx)}
+.img-tag:hover{border-color:var(--ac);transform:translateY(-1px)}
+.img-tag.on{background:var(--grad-pp);border-color:transparent;color:#fff;font-weight:var(--fw-strong);box-shadow:0 2px 8px rgba(163,113,247,.4)}
+
+/* ---------- 项目进度看板 ---------- */
+.mini-status{padding:4px 12px;border-radius:12px;border:1px solid var(--bd2);background:var(--bg3);font-size:11px;cursor:pointer;transition:.15s;color:var(--tx2);white-space:nowrap}
+.mini-status:hover{border-color:var(--ac)}
+.mini-status.on{font-weight:var(--fw-strong)}
+.mini-status.on.warn{background:rgba(210,153,34,.16);border-color:var(--warn);color:var(--warn-tx)}
+.mini-status.on.pp{background:rgba(163,113,247,.16);border-color:var(--pp);color:var(--pp-tx)}
+.mini-status.on.ok{background:rgba(63,185,80,.16);border-color:var(--ok);color:var(--ok-tx)}
+.mini-status.on.todo{border-color:var(--tx3);color:var(--tx)}
+.stage-btn{padding:8px 16px;border:none;background:transparent;color:var(--tx2);font-size:12.5px;cursor:pointer;transition:.15s;white-space:nowrap}
+.stage-btn:hover{color:var(--tx)}
+.stage-btn.on{background:var(--grad-ac);color:#fff;font-weight:var(--fw-strong)}
+.ef-chip{padding:4px 12px;border-radius:14px;border:1px solid var(--bd2);background:var(--bg3);font-size:11.5px;cursor:pointer;transition:.15s;color:var(--tx2);white-space:nowrap}
+/* P2/P3 批注修正闭环（v4.26.0）：已修标记 + 译文标红 + 内联修正 */
+.ef-fix-btn{margin-left:8px;padding:0 8px;font-size:11px;border:1px solid var(--bd2);border-radius:2px;background:var(--bg3);color:var(--tx3);cursor:pointer;white-space:nowrap;transition:.15s}
+.ef-fix-btn:hover{border-color:var(--ok);color:var(--tx2)}
+.ef-fix-btn.on{background:rgba(63,185,80,.14);border-color:var(--ok);color:var(--ok-tx)}
+li.ef-done{opacity:.75}
+li.ef-done::after{content:'✓ 已修';float:right;font-size:11px;color:var(--ok-tx);background:rgba(63,185,80,.14);border:1px solid var(--ok);padding:0 8px;border-radius:2px;margin-left:8px}
+.ef-progress{font-size:11.5px;color:var(--tx3);margin-left:8px;white-space:nowrap}
+.err-fix{background:rgba(214,58,44,.16);border-bottom:1.5px solid var(--err);padding:0 4px;cursor:text;border-radius:2px}
+.err-fix.editing{background:rgba(63,185,80,.12);border-bottom-color:var(--ok);outline:none;box-shadow:0 0 0 2px rgba(63,185,80,.25)}
+/* P1 收录核查结果弹窗（v4.26.0） */
+.vf-row{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bd)}
+.vf-row:last-child{border-bottom:none}
+.vf-badge{flex:none;font-size:11px;padding:4px 8px;border:1px solid var(--bd2);border-radius:2px}
+.vf-badge.ok{background:rgba(63,185,80,.14);border-color:var(--ok);color:var(--ok-tx)}
+.vf-badge.doubt{background:rgba(210,153,34,.15);border-color:var(--warn);color:var(--warn-tx)}
+.vf-badge.bad{background:rgba(248,81,73,.15);border-color:var(--err);color:var(--err-tx)}
+.ef-dedup{margin-left:8px;font-family:var(--f-mono);font-size:11px;color:var(--warn-tx);border:1px solid var(--warn);padding:0 4px;vertical-align:middle}
+.ef-chip:hover{border-color:var(--ac)}
+.ef-chip.on{background:var(--grad-ac);border-color:transparent;color:#fff;font-weight:var(--fw-strong)}
+.proof-badge{display:inline-flex;gap:4px;align-items:center;padding:0px 8px;border-radius:10px;font-size:10.5px;white-space:nowrap}
+.proof-badge.warn{background:rgba(210,153,34,.14);color:var(--warn-tx)}
+.proof-badge.ok{background:rgba(63,185,80,.14);color:var(--ok-tx)}
+.proof-badge.info{background:rgba(79,140,255,.14);color:var(--ac-tx)}
+.cur-task{outline:1px solid var(--ac);outline-offset:-1px}
+#post-bar{display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px}
+
+/* ---------- 主题切换 ---------- */
+.theme-btn{padding:4px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--bg2);font-size:15px;cursor:pointer;line-height:1;margin-right:8px;transition:.15s}
+.theme-btn:hover{border-color:var(--ac)}
+.theme-opt{padding:8px 16px;border-radius:8px;border:1px solid var(--bd2);background:var(--bg3);color:var(--tx2);font-size:13px;cursor:pointer;transition:.15s}
+.theme-opt:hover{border-color:var(--ac)}
+.theme-opt.on{background:var(--grad-ac);border-color:transparent;color:#fff;font-weight:var(--fw-strong)}
+/* ═══════════ 开屏动画（3 秒问候页，纯视觉 pointer-events:none）═══════════ */
+#tp-splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;background:var(--bg);animation:spFade .55s ease 2.45s forwards}
+#tp-splash .sp-box{position:relative;padding:40px 56px;text-align:center;border:1px solid var(--bd);background:var(--bg2);border-radius:4px;box-shadow:0 12px 44px rgba(0,0,0,.20);overflow:hidden;animation:spIn var(--sp-dur) cubic-bezier(.2,.8,.2,1) both}
+#tp-splash .sp-box::before{content:'';position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--ac),transparent);top:-1px;opacity:.55;animation:spScan 2.4s linear infinite}
+#tp-splash .sp-deco{font-family:var(--f-mono);font-size:13px;letter-spacing:.4em;color:var(--ac);margin-bottom:16px;white-space:nowrap;animation:spIn var(--sp-dur) var(--sp-d1) both}
+#tp-splash .sp-hi{font-family:var(--f-ui);font-size:14px;color:var(--tx2);margin-bottom:8px;animation:spIn var(--sp-dur) var(--sp-d2) both}
+#tp-splash .sp-slogan{font-family:var(--f-read);font-size:24px;font-weight:var(--fw-strong);color:var(--tx);letter-spacing:.1em;animation:spIn var(--sp-dur) var(--sp-d3) both}
+#tp-splash .sp-slogan::after{content:'';display:inline-block;width:2px;height:1em;background:var(--ac);margin-left:7px;vertical-align:-2px;animation:spBlink .9s steps(1) infinite}
+#tp-splash .sp-meta{margin-top:18px;font-family:var(--f-mono);font-size:11px;letter-spacing:.3em;color:var(--tx2);opacity:.7;animation:spIn var(--sp-dur) var(--sp-d4) both}
+:root[data-theme="dark"] #tp-splash{background:radial-gradient(ellipse at 50% 42%, #141920 0%, var(--bg) 72%)}
+:root[data-theme="light"] #tp-splash{background:linear-gradient(165deg,#f3f9f6 0%,#eef2fb 100%)}
+:root[data-theme="light"] #tp-splash .sp-box{box-shadow:0 12px 36px rgba(30,60,50,.12)}
+@keyframes spIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spBlink{50%{opacity:0}}
+@keyframes spScan{from{top:-1px}to{top:100%}}
+@keyframes spFade{to{opacity:0;visibility:hidden}}
+/* ═══════════ 工具栏视觉分组（轻方案：只加分组标签与分隔线，不动按钮 id）═══════════ */
+.tb-g{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tb-cap{font-size:11px;color:var(--tx3);letter-spacing:.06em;user-select:none;white-space:nowrap}
+.tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 1px}
+.accent-swatch{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:.15s;flex-shrink:0}
+.accent-swatch:hover{transform:scale(1.12)}
+.accent-swatch.on{border-color:var(--tx)}
+
+/* ---------- 折叠区块（批注/注释/争议/待确认） ---------- */
+.sec-fold{margin:12px 0;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);overflow:hidden}
+.sec-fold summary{cursor:pointer;padding:8px 16px;font-weight:500;font-size:13px;color:var(--ac);list-style:none;display:flex;align-items:center;gap:8px;user-select:none}
+.sec-fold summary:hover{background:var(--bg3)}
+.sec-fold summary::before{content:'▸';transition:transform .15s;display:inline-block;font-size:11px}
+.sec-fold[open] summary::before{transform:rotate(90deg)}
+.sec-fold > *:not(summary){padding:4px 16px 12px}
+
+/* ---------- 改动对照视图 ---------- */
+.diff-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--bd);font-size:13px;line-height:1.6}
+.diff-row:last-child{border-bottom:none}
+.diff-type{flex-shrink:0;padding:0px 8px;border-radius:10px;font-size:11px;background:var(--bg3);border:1px solid var(--bd2);color:var(--tx2)}
+.diff-from{color:var(--err-tx);text-decoration:line-through;opacity:.85;word-break:break-all}
+.diff-arrow{color:var(--tx3);flex-shrink:0}
+.diff-to{color:var(--ok-tx);background:rgba(63,185,80,.10);padding:0 8px;border-radius:4px;word-break:break-all}
+.diff-reason{flex-basis:100%;font-size:11.5px;color:var(--tx3);padding-left:4px}
+.diff-copy{flex-shrink:0;padding:0 8px;color:var(--tx3);font-size:14px;line-height:1.2}
+.diff-copy:hover{color:var(--ac)}
+
+/* ---------- 三栏逐句对照视图（T-001 · v4.30.0） ---------- */
+.vs-on{background:var(--ac) !important;border-color:var(--ac) !important;color:#fff !important}
+.tri-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+.tri-note{font-size:11.5px;color:var(--tx3)}
+.tri-table{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bd);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.tri-head,.tri-row{display:contents}
+.tri-head>div{padding:8px 12px;background:var(--bg3);font-size:12px;font-weight:var(--fw-strong);color:var(--tx2);letter-spacing:.04em}
+.tri-cell{padding:9px 12px;font-size:13px;line-height:1.75;background:var(--bg2);min-width:0;overflow-wrap:anywhere}
+.tri-cell.tri-p{box-shadow:inset 0 2px 0 var(--bd2)}
+.tri-cell.src{grid-column:1;color:var(--tx2);font-size:12.5px;background:var(--bg)}
+.tri-cell.old{grid-column:2}
+.tri-cell.neu{grid-column:3}
+.tri-num{font-family:var(--f-mono);font-size:10.5px;color:var(--tx3);margin-right:6px;user-select:none}
+.tri-add{color:var(--ok-tx);background:rgba(63,185,80,.14);border-radius:3px;padding:0 2px}
+.tri-del{color:var(--err-tx);background:rgba(248,81,73,.10);border-radius:3px;padding:0 2px;text-decoration:line-through}
+.tri-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:2px}
+.tri-empty{color:var(--tx3);opacity:.6}
+.tri-miss{margin-top:10px;font-size:11.5px;line-height:1.7;color:var(--warn-tx)}
+@media (max-width:760px){
+  .tri-table{display:block}
+  .tri-head{display:flex;flex-direction:column}
+  .tri-cell{display:block;box-shadow:none}
+  .tri-cell.src{margin-bottom:2px}
+}
+
+/* ---------- 进度条 ---------- */
+.progress-track{flex:1;height:8px;background:var(--bg3);border-radius:6px;overflow:hidden}
+.progress-bar{height:100%;width:0;background:var(--grad-ac);border-radius:6px;transition:width .3s ease}
+.progress-txt{font-size:12px;color:var(--tx2);white-space:nowrap;min-width:110px;text-align:right}
+
+/* ---------- 提示条 ---------- */
+.alert{padding:12px 16px;border-radius:10px;font-size:12.5px;margin-bottom:16px;border:1px solid;line-height:1.65;display:flex;align-items:flex-start;gap:8px}
+.alert.i{background:linear-gradient(135deg,rgba(79,140,255,.10),rgba(110,92,242,.06));border-color:rgba(79,140,255,.30);color:var(--info-tx)}
+.alert.w{background:linear-gradient(135deg,rgba(210,153,34,.10),rgba(210,153,34,.05));border-color:rgba(210,153,34,.30);color:var(--warn-tx)}
+.alert.e{background:linear-gradient(135deg,rgba(248,81,73,.10),rgba(248,81,73,.05));border-color:rgba(248,81,73,.30);color:var(--err-tx)}
+.alert a{color:inherit;text-decoration:underline}
+.alert code{background:rgba(255,255,255,.08);padding:0px 8px;border-radius:4px;font-size:12px}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ---------- 弹层 ---------- */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;place-items:center;z-index:100;padding:20px}
+.modal.on{display:grid}
+.modal .box{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;max-width:760px;width:100%;max-height:86vh;overflow-y:auto;padding:24px}
+.modal .box h2{font-size:16px;margin-bottom:16px;display:flex;align-items:center}
+.modal .box h2 button{margin-left:auto;color:var(--tx3);font-size:20px;line-height:1}
+.modal .box h3{font-size:13.5px;color:var(--ac);margin:20px 0 8px}
+.modal .box ol,.modal .box ul{margin:8px 0 8px 20px;font-size:13px;line-height:1.9;color:var(--tx2)}
+.modal .box li{margin:4px 0}
+.modal .box p{font-size:13px;color:var(--tx2);margin:8px 0;line-height:1.8}
+
+/* ---------- 加载 ---------- */
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.caret{display:inline-block;width:7px;height:15px;background:var(--ac);vertical-align:-2px;animation:bl 1s steps(2) infinite}
+@keyframes bl{50%{opacity:0}}
+
+/* ---------- 步骤 ---------- */
+.steps{counter-reset:s;display:flex;flex-direction:column;gap:12px}
+.step{display:flex;gap:12px;align-items:flex-start;font-size:13px;line-height:1.75}
+.step::before{
+  counter-increment:s;content:counter(s);flex-shrink:0;
+  width:21px;height:21px;border-radius:50%;background:var(--ac);color:#fff;
+  display:grid;place-items:center;font-size:11.5px;font-weight:var(--fw-strong);margin-top:4px;
+}
+.step div{color:var(--tx2)}
+.step b{color:var(--tx);font-weight:var(--fw-strong)}
+kbd{background:var(--bg3);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:4px;padding:0px 8px;font-size:11.5px;font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--tx)}
+
+/* ═══════════ Swiss × NASA-punk 融合覆盖层（克制融合，不过度装饰）═══════════
+   骨架取 Swiss（网格/左对齐/平涂/细线/编号），点缀取 NASA（面板/标签/彩条/徽章/等宽）*/
+
+/* 1. 平涂：去阴影/渐变/位移 */
+.card,.btn,.out,.step-num,.dp-chip.sel,.img-tag.on,.dot.on{box-shadow:none !important}
+input:focus,textarea:focus,select:focus{box-shadow:none !important;border-color:var(--ac) !important}
+.logo .mark{background:var(--tx) !important}
+.card>h3{background:var(--bg2) !important}
+.btn:hover,.dp-chip:hover,.img-tag:hover,.pm-rating span:hover,.accent-swatch:hover{transform:none !important}
+
+/* 2. 主按钮：墨黑底（暗色米白底），hover 变强调红 #D63A2C */
+.btn.pri,.btn.pur{background:#ece5d6 !important;border:1px solid #ece5d6 !important;color:#1b1a16 !important;font-weight:var(--fw-strong);letter-spacing:.03em}
+:root[data-theme="light"] .btn.pri,:root[data-theme="light"] .btn.pur{background:#1b1a16 !important;border-color:#1b1a16 !important;color:#ece5d6 !important}
+.btn.pri:hover,.btn.pur:hover{background:var(--ac) !important;border-color:var(--ac) !important;color:#fff !important;filter:none !important}
+
+/* 3. 统一小圆角（工业直角感）*/
+.btn,input,textarea,select,.tag,.g-tag,.badge,.file-bar,.pm-entry,.pm-drop,.g-filter,.g-batch,.g-preview,.g-import-steps .s,.g-colmap .cm,.g-collections-card,.g-status,.out,.dp-wrap,.dp-chip,.img-tag,.mini-status,.ef-chip,.proof-badge,#post-bar,.theme-btn,.theme-opt,.accent-swatch,.sec-fold,.modal .box,.alert,kbd,nav button,.logo .mark,.stats,.twrap,#progress-wrap{border-radius:2px !important}
+.step-num,.step::before{border-radius:0 !important}
+
+/* 4. 蓝色硬编码 → 强调红 */
+.file-bar.has-file,.pm-drop:hover,.pm-drop.drag,table.g-table tr.sel{background:rgba(214,58,44,.07) !important}
+.card:hover{border-color:var(--bd2) !important}
+
+/* 5. 状态色：待审灰 / 确认黑 / 拒绝红 */
+.g-status.pending{background:var(--bg3) !important;color:var(--tx2) !important}
+.g-status.confirmed{background:var(--tx) !important;color:var(--bg2) !important}
+.g-status.rejected{background:rgba(214,58,44,.12) !important;color:var(--err) !important}
+
+/* 6. 左对齐 ragged right */
+.pm-empty,.g-empty,.empty,.pm-drop{text-align:left !important}
+
+/* 7. NASA 身份元素：四色复古彩条（页首顶部 4px）*/
+header{position:relative}
+header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-index:10;background:linear-gradient(90deg,#4c5a68 0 25%,#7a7f4e 25% 50%,#d2a85e 50% 75%,#a8432f 75% 100%)}
+
+/* 8. NASA 圆形任务徽章（logo）*/
+.logo .mark{border-radius:50% !important;width:30px !important;height:30px !important;border:2px solid var(--tx) !important;background:var(--bg) !important;color:var(--tx) !important}
+
+/* 9. 融合点：功能标签 UNIT 01（Swiss 编号 = NASA 面板标签，等宽小号）*/
+#p-work{counter-reset:panel}
+#p-work .card{counter-increment:panel}
+#p-work .card>h3::after{content:"UNIT " counter(panel,decimal-leading-zero);font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--tx3);margin-left:8px;font-weight:400;font-variant-numeric:tabular-nums}
+
+/* 10. 设备面板感：细线边框 + 四角铆钉（加强：3px 强对比螺钉点，铺开全站卡片）*/
+.card,.g-collections-card{border:1px solid var(--bd2);position:relative}
+.card::before,.g-collections-card::before{content:"";position:absolute;inset:4px;pointer-events:none;z-index:5;background:radial-gradient(circle at 7px 7px,var(--tx) 3px,transparent 3.8px),radial-gradient(circle at calc(100% - 7px) 7px,var(--tx) 3px,transparent 3.8px),radial-gradient(circle at 7px calc(100% - 7px),var(--tx) 3px,transparent 3.8px),radial-gradient(circle at calc(100% - 7px) calc(100% - 7px),var(--tx) 3px,transparent 3.8px)}
+
+/* 11. 标题强化 + 警示斜纹左条（铺开全站卡片标题）*/
+.card>h3{font-size:15px;font-weight:var(--fw-title);letter-spacing:.04em}
+.card>h3::before{width:6px !important;background:repeating-linear-gradient(45deg,var(--tx) 0 4px,transparent 4px 8px) !important}
+.card>h3 .hint{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;font-weight:400}
+.g-collections-head::before{content:"";display:inline-block;width:6px;height:14px;flex:0 0 auto;background:repeating-linear-gradient(45deg,var(--tx) 0 4px,transparent 4px 8px)}
+/* ── 反馈（v4.26.0） ── */
+.fb-fab{position:fixed;right:20px;bottom:24px;z-index:900}
+.ver-tag{position:fixed;left:12px;bottom:8px;z-index:800;font-size:11px;line-height:1;color:#8a8a8a;background:rgba(255,255,255,.72);border:1px solid #e2e2e2;border-radius:10px;padding:3px 9px;pointer-events:none;user-select:none;font-family:monospace}
+.fb-list{display:flex;flex-direction:column;gap:8px}
+.fb-item{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:12px 16px;display:flex;flex-direction:column;gap:4px}
+.fb-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:var(--f-mono);font-size:12px;color:var(--tx3)}
+.fb-id{color:var(--tx2)}
+.fb-pend{border:1px solid var(--warn);color:var(--warn);font-size:11px;padding:0 4px;border-radius:0}
+.fb-d{font-size:13px;line-height:1.5;word-break:break-all}
+.fb-sub{font-size:12px;color:var(--tx3)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="mark">译</div>
+    <span>译校助手</span><small>Translation Proofreader</small>
+  </div>
+  <nav>
+    <button class="on" data-page="p-work">校对工作台</button>
+    <button data-page="p-trans">翻译工作台</button>
+    <button data-page="p-project">项目进度</button>
+    <button data-page="p-term">术语库</button>
+    <button data-page="p-gloss">专有译词库</button>
+    <button data-page="p-prompt">Prompt 库 <span style="font-size:11px;background:var(--ac);color:#fff;padding:1px 5px;border-radius:8px;margin-left:2px;vertical-align:middle">新</span></button>
+    <button data-page="p-set">设置</button>
+    <button data-page="p-help">使用指南</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="theme-btn" id="themeToggle" title="切换明暗主题：自动 / 深色 / 浅色">🌓</button>
+  <div class="badge"><span class="dot" id="apiDot"></span><span id="apiTxt">未配置</span></div>
+</header>
+
+<main>
+
+<!-- ═══════════ 工作台 ═══════════ -->
+<section class="page on" id="p-work">
+<div class="wrap">
+
+  <div class="card">
+    <h3>① 输入文本 <span class="hint">原文为可选项；只有译文时也能做单语润色</span></h3>
+    <div class="body">
+      <div class="grid2" style="margin-bottom:12px">
+        <div>
+          <div class="frow" style="margin-bottom:6px">
+            <div style="flex:0 0 132px;min-width:0">
+              <label class="f">原文语言</label>
+              <select id="lang">
+                <option value="英语">英语 English</option>
+                <option value="法语">法语 Français</option>
+                <option value="日语">日语 日本語</option>
+                <option value="德语">德语 Deutsch</option>
+                <option value="俄语">俄语 Русский</option>
+                <option value="西班牙语">西班牙语 Español</option>
+                <option value="意大利语">意大利语 Italiano</option>
+                <option value="葡萄牙语">葡萄牙语 Português</option>
+                <option value="韩语">韩语 한국어</option>
+                <option value="阿拉伯语">阿拉伯语 العربية</option>
+                <option value="拉丁语">拉丁语 Latina</option>
+                <option value="古希腊语">古希腊语</option>
+                <option value="">其他/自动判断</option>
+              </select>
+            </div>
+            <div style="flex:0 0 132px;min-width:0">
+              <label class="f">文本类型</label>
+              <select id="genre">
+                <option value="学术论文">学术论文</option>
+                <option value="学术专著">学术专著</option>
+                <option value="书评/文评">书评 / 文评</option>
+                <option value="访谈/对话">访谈 / 对话</option>
+                <option value="影评/艺术评论">影评 / 艺术评论</option>
+                <option value="新闻/时评">新闻 / 时评</option>
+                <option value="演讲稿">演讲稿</option>
+                <option value="散文/随笔">散文 / 随笔</option>
+                <option value="文学/诗歌">文学 / 诗歌</option>
+                <option value="公文/法律">公文 / 法律</option>
+                <option value="技术文档">技术文档</option>
+                <option value="">通用</option>
+              </select>
+            </div>
+          </div>
+          <label class="f">原文（{src}）<span style="color:var(--tx3);font-weight:400">— 可选，粘贴原文能显著提升准确度</span></label>
+          <div class="file-bar" id="srcFileBar">
+            <button class="btn gray" id="btn-src-file">📂 上传原文文档</button>
+            <button class="btn gray sm" id="btn-tidy-src" title="对噪声文本（语音转写/OCR/段落乱序）排序整理、重分段、去噪：只修明显的乱，不删内容、不改风格、不臆改专名与数字（v4.24.0）">🧽 原文整理</button>
+            <span style="font-size:11px;color:var(--tx3)">支持 .docx / .pdf / 图片（扫描件自动 OCR）</span>
+            <input type="file" id="srcFile" accept=".docx,.pdf,image/*" hidden>
+          </div>
+          <textarea id="src" rows="11" placeholder="在此粘贴外文原文……"></textarea>
+        </div>
+        <div>
+          <div class="frow" style="margin-bottom:6px">
+            <div style="flex:0 0 264px;min-width:0">
+              <label class="f">目标读者 / 体裁调性</label>
+              <select id="tone">
+                <option value="学术严谨">学术严谨 — 保留长句与理论密度</option>
+                <option value="专业可读">专业可读 — 学术准确 + 顺畅（推荐）</option>
+                <option value="大众科普">大众科普 — 降低术语门槛</option>
+                <option value="文学性">文学性 — 保留修辞与节奏</option>
+                <option value="口语化">口语化 — 贴近日常表达</option>
+              </select>
+            </div>
+          </div>
+          <label class="f">待校对译文 <span style="color:var(--tx3);font-weight:400">— 粘贴机器翻译初稿或人工译稿</span></label>
+          <div class="file-bar" id="dstFileBar">
+            <button class="btn gray" id="btn-dst-file">📂 上传译文文档</button>
+            <button class="btn gray sm" id="btn-tidy-dst" title="整理译文框里的噪声文本（转写错乱/段落乱序），再进入校对（v4.24.0）">🧽 译文整理</button>
+            <span style="font-size:11px;color:var(--tx3)">支持 .docx / .pdf / 图片（扫描件自动 OCR）</span>
+            <input type="file" id="dstFile" accept=".docx,.pdf,image/*" hidden>
+          </div>
+          <textarea id="dst" rows="11" placeholder="在此粘贴需要校对的译文……"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+            <button class="btn gray sm" id="btn-tri-inline" title="边翻边看：原文｜译文 三栏并排实时对照；校对跑完自动带上「修订」列（v4.35.0，本地生成、不花 token）">📊 三栏对照</button>
+            <span style="font-size:11px;color:var(--tx3)">翻译时就能并排看；校对跑完自动补「修订」列</span>
+          </div>
+          <div id="tri-inline" style="display:none;margin-top:10px"></div>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="wide">
+          <label class="f">本次特别指示（可选）</label>
+          <input id="extra" placeholder="例如：保留作者的特殊断句；assimilation 在本文中固定译为「同化」；不要使用「此外」">
+        </div>
+        <div style="flex:0 0 auto;display:flex;gap:8px;align-items:flex-end">
+          <button class="btn gray sm" id="btn-clear">清空</button>
+          <button class="btn gray sm" id="btn-sample">载入示例</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>② 校对设置 <span class="hint">勾选本次要执行的环节</span></h3>
+    <div class="body">
+      <div class="frow" style="margin-bottom:10px">
+        <div>
+          <label class="f">深度 <select id="depth" style="width:100%;margin-top:4px">
+            <option value="标准">标准 — 全文批注 + 润色译文</option>
+            <option value="逐句">逐句 — 逐句给原文/译文/问题/建议</option>
+            <option value="精修">精修 — 只输出可发布终稿，批注精简</option>
+            <option value="体检">体检 — 先诊断问题清单（不重写）</option>
+          </select></label>
+        </div>
+        <div>
+          <label class="f">译文风格</label>
+          <select id="style">
+            <option value="中性客观">中性客观</option>
+            <option value="保留原文语序">保留原文语序（贴合原文结构）</option>
+            <option value="流畅顺畅">流畅顺畅（符合中文习惯优先）</option>
+            <option value="简洁凝练">简洁凝练</option>
+            <option value="文雅书面">文雅书面</option>
+          </select>
+        </div>
+        <div>
+          <label class="f">中文变体</label>
+          <select id="variant">
+            <option value="简体普通话">简体 · 大陆普通话</option>
+            <option value="简体学术港台">简体 · 港台学术用语</option>
+            <option value="繁体">繁体中文</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--tx2)">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="c-term" checked style="width:auto"> 术语库锁定 <span id="termWarn" style="color:var(--warn);font-size:11.5px;display:none">（库为空）</span></label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="c-note" checked style="width:auto"> 注释/译注建议</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="c-ext" checked style="width:auto"> 争议点延伸查证</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="c-format" style="width:auto"> 出版格式规范</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="c-deai" style="width:auto"> 去 AI 腔调</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer" id="askWrap"><input type="checkbox" id="c-ask" style="width:auto"> 存疑处向我提问（不擅自改）</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--tx3)" id="docModeWrap" title="仅当上方「待校对译文」上传了 Word 文档时可用：校对完成后可下载图片与排版原样保留的完整文档"><input type="checkbox" id="c-docmode" disabled style="width:auto"> 文档模式（保留图片排版，输出 Word）<span id="docModeHint" style="font-size:11px;color:var(--tx3)">（需上传 .docx 译文）</span></label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:13px;color:var(--tx2)">校对阶段：</span>
+    <div id="stage-seg" style="display:inline-flex;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+      <button class="stage-btn" data-stage="full">完整校对</button>
+      <button class="stage-btn" data-stage="pass1">一校 · 硬伤</button>
+      <button class="stage-btn" data-stage="pass2">二校 · 文风</button>
+    </div>
+    <span id="stage-hint" style="font-size:12px;color:var(--tx3)"></span>
+    <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12.5px;color:var(--tx2);margin-left:auto"><input type="checkbox" id="c-autopass2" style="width:auto"> 一校后自动接二校</label>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <span class="tb-g"><span class="tb-cap">▶ 运行</span>
+      <button class="btn pri" id="btn-run" style="padding:9px 22px">
+        <span id="runIco">▶</span><span id="runTxt">开始校对</span>
+      </button>
+      <button class="btn" id="btn-ext" style="padding:9px 18px" title="专门分析术语与争议点，输出词典级延伸注解">
+        <span>◆</span><span>仅做术语/争议点延伸</span>
+      </button>
+      <button class="btn" id="btn-estimate" style="padding:9px 18px" title="校对前先快速扫一眼：评估译文水平、问题集中段落、建议一校还是二校（花很少 token，不做逐句修改）">
+        <span>📊</span><span>质量预估</span>
+      </button>
+      <button class="btn" id="btn-hard" style="padding:9px 18px" title="标出歧义/多义/指代不清/ASR乱码/可读性差的疑难句，给出候选译法：可选、可改、可自己写，点「纳入译文」才生效——AI 提议，你拍板（v4.24.0）">
+        <span>⚠</span><span>疑难标注</span>
+      </button>
+      <button class="btn gray" id="btn-stop" disabled>■ 停止</button>
+      <button class="btn gray" id="btn-pause" disabled title="暂停：保留已生成内容，可继续续写">⏸ 暂停</button>
+    </span>
+    <div class="spacer"></div>
+    <span class="tb-g"><span class="tb-cap">📤 输出</span>
+      <button class="btn gray sm" id="btn-md">导出 Markdown</button>
+      <button class="btn gray sm" id="btn-copy">复制结果</button>
+      <button class="btn gray sm" id="btn-wx">转公众号格式</button>
+    </span>
+    <span class="tb-sep"></span>
+    <span class="tb-g"><span class="tb-cap">🧰 工具</span>
+      <button class="btn gray sm" id="btn-notes" title="从 PDF 自动提取的脚注/尾注：可批量翻译、按章节勾选贴入校对结果（v4.22.0）">🏷 本章注释</button>
+      <button class="btn gray sm" id="btn-img" title="从校对结果提取关键词，为文章检索配图">🔍 配图</button>
+      <button class="btn gray sm" id="btn-diff" title="把批注整理成「原译 → 修订」对照表：红色删除线、绿色高亮，逐条可复制（不调 AI、不花 token）">📝 改动对照</button>
+      <button class="btn gray sm" id="btn-audit-center" title="把本地体检收在一起：术语 / 专名 / 段落 / 数字 / 总评分 / 风格简报，逐项可开关、一键全检（v4.36.0，不调 AI、不花 token）">🩺 体检中心</button>
+      <button class="btn gray sm" id="btn-report" title="把本次校对的检查覆盖、错误分类、已修进度、质量评分汇总成一张可复制的交付报告（纯本地、不花 token）">📋 交付报告</button>
+    </span>
+    <span class="tb-sep"></span>
+    <span class="tb-g"><span class="tb-cap">📥 文档</span>
+      <button class="btn sm" id="btn-docout" style="display:none;background:rgba(63,185,80,.12);border-color:var(--ok)" title="下载校对后的完整 Word 文档：图片与排版原样保留，仅文字被替换">📥 下载校对后文档</button>
+      <button class="btn sm" id="btn-trackdoc" style="display:none;background:rgba(63,185,80,.12);border-color:var(--ok)" title="导回原文档并保留排版，改动以 Word「修订痕迹」标出（删除线旧文 + 下划线新文），在 Word 审阅页可一键接受/拒绝（v4.23.0）">📝 导回 Word（修订模式）</button>
+    </span>
+  </div>
+
+  <div id="audit-center" style="display:none;margin-top:10px;padding:12px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <b style="font-size:13px">🩺 体检中心</b>
+      <span style="font-size:11.5px;color:var(--tx3)">勾选本次要做的体检 → 点「一键体检」；也可以逐项单跑。全部本地，不花 token</span>
+      <span style="flex:1"></span>
+      <button class="btn pri sm" id="btn-audit-all">▶ 一键体检</button>
+      <button class="btn gray sm" id="btn-audit-center-close">收起</button>
+    </div>
+    <div class="opts" style="margin-bottom:10px">
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-term" checked style="width:auto"> 术语一致性</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-pnoun" checked style="width:auto"> 专名一致性</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-para" checked style="width:auto"> 段落对齐</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-num" checked style="width:auto"> 数字与格式</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-quality" checked style="width:auto"> 译文总评分（含漏译残留 / 占位符保护）</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-tone" style="width:auto"> 风格简报</label>
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ao-style" checked style="width:auto"> 翻译腔</label>
+    </div>
+    <div class="tb-g">
+      <button class="btn gray sm" id="btn-audit" title="本地扫描：检查术语是否前后统一、术语库译法是否被遵守（不调 AI、不花 token）">🩺 术语体检</button>
+      <button class="btn gray sm" id="btn-pnoun" title="本地零流量核对专名一致性：同名异译/疑似未译/数字丢失，可一键统一（v4.28.0）">🔎 专名体检</button>
+      <button class="btn gray sm" id="btn-para-audit" title="本地核对：原文与译文的段落数量是否对得上，缺段/多段/空段直接标出位置（不调 AI、不花 token）">🧩 段落对齐</button>
+      <button class="btn gray sm" id="btn-num-audit" title="本地核对：数字有没有丢/被改/凭空多出、百分号丢没丢、否定词（not、不、无）漏没漏——AI 最抓不住的安静硬伤（不调 AI、不花 token）">🔢 数字体检</button>
+      <button class="btn gray sm" id="btn-punct-audit" title="本地核对：书名号《》、括号、引号、问号、叹号、破折号、省略号有没有漏标/多标、括号是否闭合——纯机械 1:1 对账（不调 AI、不花 token）">🔣 标点对账</button>
+      <button class="btn gray sm" id="btn-style-audit" title="本地核对：译文里有没有「翻译腔」——句末落「的」、「的」字堆叠、套话直译，读着别扭的地方（不调 AI、不花 token）">📝 翻译腔体检</button>
+      <button class="btn gray sm" id="btn-quality" title="本地算出 0–100 总分 + S/A/B/C/D，拆成忠实度 / 流畅度，逐条列出扣分项（v4.36.0，不花 token）">📊 总评分</button>
+      <button class="btn gray sm" id="btn-tone" title="按上方选的「体裁调性」给一份具体检查清单，翻译校对时照着走（v4.36.0，本地零流量）">🎛 风格简报</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>③ 校对结果 <span class="hint" id="outHint">等待运行</span> <button class="btn gray sm" id="btn-out-edit" title="编辑结果：查找替换、全部替换、改完保存即重渲（v4.28.0）">✏️ 编辑/替换</button></h3>
+    <div id="view-seg" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 12px">
+      <span class="tb-cap">视图</span>
+      <button class="btn gray sm vs-on" data-view="doc" id="btn-view-doc" title="文档视图：原来的校对结果全文（默认）">📄 文档</button>
+      <button class="btn gray sm" data-view="tri" id="btn-view-tri" title="三栏逐句对照：原文｜原译｜修订，改动处红删绿增（v4.30.0，本地生成、不花 token）">📊 三栏对照</button>
+      <span class="hint" id="view-hint">按段落+句序自动对齐，可整体复制</span>
+    </div>
+    <div id="post-bar">
+      <div id="err-filter" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+      <div id="stage-next" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"></div>
+    </div>
+    <div id="progress-wrap" style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+      <span class="progress-txt" id="progress-txt">0%</span>
+    </div>
+    <div class="out" id="out" data-ph="校对结果将显示在这里……"></div>
+    <div id="out-tri" style="display:none"></div>
+    <div class="stats" id="stats" style="display:none">
+      <span>耗时 <b id="s-time">—</b></span>
+      <span>原文 <b id="s-src">—</b> 字</span>
+      <span>译文 <b id="s-dst">—</b> 字</span>
+      <span>输出 <b id="s-out">—</b> 字</span>
+      <span>调用 <b id="s-tok">—</b></span>
+    </div>
+    <div id="decision-panel" style="display:none"></div>
+  </div>
+
+</div>
+</section>
+
+<!-- ═══════════ 术语库 ═══════════ -->
+<section class="page" id="p-term">
+<div class="wrap">
+  <div class="alert i">
+    <b>术语库的作用：</b>把「这个词必须这样译」写进这里，每次校对都会强制遵守，避免同一批文章里 <code>hegemony</code> 一会儿译「霸权」一会儿译「领导权」。首次校对遇到的新术语，工具会主动提示你加入。
+  </div>
+
+  <div class="card">
+    <h3>术语库管理 <span class="hint" id="termCount">0 条</span></h3>
+    <div class="body">
+      <div class="frow" style="margin-bottom:10px">
+        <div class="wide">
+          <label class="f">快速添加（每行一条，格式：原文 | 中文 | 备注）</label>
+          <textarea id="termPaste" rows="4" placeholder="hegemony | 霸权 | 葛兰西；勿译「霸权主义」
+interpellation | 询唤 | 阿尔都塞术语；勿译「质询」
+Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+        <span class="tb-g"><span class="tb-cap">🤖 AI</span>
+          <button class="btn pri sm" id="btn-term-scan" title="用 AI 从 PDF/DOC/TXT 智能抽取术语，自动建集合，剔除标题目录">智能扫描</button>
+        </span>
+        <span class="tb-sep"></span>
+        <span class="tb-g"><span class="tb-cap">➕ 添加</span>
+          <button class="btn pri sm" id="btn-term-add">批量导入</button>
+          <button class="btn sm" id="btn-term-new">＋ 新增一行</button>
+        </span>
+        <span class="tb-sep"></span>
+        <span class="tb-g"><span class="tb-cap">📂 文件</span>
+          <button class="btn gray sm" id="btn-term-exp">导出 JSON</button>
+          <button class="btn gray sm" id="btn-term-csv">导出 CSV</button>
+          <button class="btn gray sm" id="btn-term-imp">导入 JSON/CSV</button>
+        </span>
+        <span class="tb-sep"></span>
+        <button class="btn gray sm" id="btn-term-clr" title="清空全部术语">🗑 清空</button>
+        <input type="file" id="termFile" accept=".json,.csv,.txt" hidden>
+        <input type="file" id="termScanFile" accept=".pdf,.docx,.doc,.txt,.md" hidden>
+      </div>
+
+      <div class="frow" style="margin-bottom:10px">
+        <div class="wide">
+          <label class="f">搜索</label>
+          <input id="termSearch" placeholder="输入关键词筛选……">
+        </div>
+        <div style="flex:0 0 160px">
+          <label class="f">按类筛选</label>
+          <select id="termCat"></select>
+        </div>
+      </div>
+
+      <div class="twrap">
+        <table id="termTable">
+          <thead><tr>
+            <th style="width:22%">原文</th>
+            <th style="width:22%">中文译名</th>
+            <th style="width:14%">类别</th>
+            <th style="width:32%">备注 / 使用约束</th>
+            <th style="width:10%">操作</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>团队云端同步 <span class="hint">一处更新 · 处处拉取 · 免服务器</span></h3>
+    <div class="body">
+      <div class="frow" style="margin-bottom:6px">
+        <div class="wide">
+          <label class="f">共享词库网址（粘一次会记住，下次直接点拉取）</label>
+          <input id="cloudUrl" placeholder="https://gist.githubusercontent.com/用户名/…/raw/…/术语库.json">
+        </div>
+        <div style="flex:0 0 170px"><label class="f">&nbsp;</label>
+          <button class="btn pri" id="btn-cloud-pull" style="width:100%">☁️ 拉取最新词库</button></div>
+      </div>
+      <div id="cloudMsg" style="font-size:12.5px;min-height:20px;line-height:1.7"></div>
+      <div class="alert i" style="margin-top:8px;font-size:12.5px;line-height:1.9">
+        <b>词库维护人怎么发布？（一次性设置，约 3 分钟，全程免费）</b><br>
+        ① 在本页点上方「导出 JSON」得到词库文件；<br>
+        ② 浏览器打开 <b>gist.github.com</b>，注册/登录后点右上角「+」，把文件内容整个粘进大输入框，右上角文件名改成 <code>terms.json</code>（以 .json 结尾），点「Create secret gist」；<br>
+        ③ 点文件右上角「<b>Raw</b>」按钮，在打开的新页面复制浏览器<b>地址栏网址</b>，发到团队群；<br>
+        ④ 以后词库有更新：回到同一个 Gist 点铅笔「编辑」，粘入新内容点保存——<b>网址不变</b>，大家再点一次「☁️ 拉取」就是最新版。<br>
+        <span style="color:var(--tx3)">注：云端那份词库任何人都能读到（本来就是要共享的内容）；你电脑里的校对记录、API Key 仍只存在本地，不受影响。若拉取失败提示跨域，可改用 jsDelivr：把 JSON 放进 GitHub 仓库后用 <code>cdn.jsdelivr.net/gh/用户名/仓库名@main/文件名.json</code>。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>全局风格偏好 <span class="hint">对所有校对生效，相当于长期指令</span></h3>
+    <div class="body">
+      <label class="f">偏好设置（用「；」分隔多条）</label>
+      <textarea id="prefs" rows="5" placeholder="保留原文页脚注释的编号顺序；人名首次出现附原文；不使用「值得注意的是」「此外」「在当今社会」等填充语；引文一律加引号并注明出处"></textarea>
+      <div style="margin-top:10px"><button class="btn pri sm" id="btn-pref-save">保存偏好</button>
+      <span style="font-size:12px;color:var(--tx3);margin-left:10px" id="prefSaved"></span></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════ 专有译词库（3.0） ═══════════ -->
+<section class="page" id="p-gloss">
+<div class="wrap">
+
+  <div class="card">
+    <h3>专有译词库 <span class="hint">从译作索引 / 已有术语库抽取 → 归一合并 → 审核 → 按需导出</span>
+      <span id="g-version" style="font-size:11px;color:var(--tx3);margin-left:8px">v3.0</span>
+    </h3>
+    <div class="body">
+      <div class="g-toolbar">
+        <span class="tb-g"><span class="tb-cap">🤖 AI</span>
+          <button class="btn pri" id="btn-g-scan" title="用 AI 从普通文章/PDF/DOC 智能抽取术语，自动建集合，剔除标题目录">智能扫描文件</button>
+          <button class="btn pri" id="btn-g-import">📂 导入索引 / 术语库</button>
+        </span>
+        <span class="tb-sep"></span>
+        <span class="tb-g"><span class="tb-cap">📤 输出</span>
+          <button class="btn" id="btn-g-export" disabled>导出</button>
+          <button class="btn" id="btn-g-sync" disabled title="把「已确认 + 推荐译名」的词条推送到术语库锁定功能">⚡ 同步到术语库</button>
+        </span>
+        <div class="spacer"></div>
+        <span class="tb-g"><span class="tb-cap">📊</span>
+          <button class="btn gray sm" id="btn-g-rules" title="基于规则自动打标签">🏷 自动标签规则</button>
+          <button class="btn gray sm" id="btn-g-stats">📊 统计</button>
+        </span>
+      </div>
+      <div class="g-stats" id="g-stats-bar"></div>
+      <div class="g-collections-card">
+        <div class="g-collections-head"><b>📚 术语集合</b> <span class="hint">☑ 勾选 = 翻译/校对时启用该集合术语；「🤖 智能扫描」会自动生成集合</span></div>
+        <div id="g-collections"></div>
+      </div>
+      <input type="file" id="g-file" accept=".txt,.csv,.xlsx,.xls,.json,.tbx,.xml,.pdf,.docx" hidden>
+      <input type="file" id="g-scan-file" accept=".pdf,.docx,.doc,.txt,.md" hidden>
+    </div>
+  </div>
+
+  <div class="card" id="gv-card">
+    <h3>🔎 专名核验 <span class="hint">待审核词条：AI 核验 → 回填真 URL → 批准 → 一键统一全文（T-022）</span></h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn sm" id="btn-gv-batch">🤖 AI 批量核验</button>
+        <button class="btn sm" id="btn-gv-unify" title="按「已批准」译名，把全文「中文（外文）」里的别名写法统一成批准译法">🔗 一键统一全文</button>
+      </div>
+      <div id="gv-list"></div>
+    </div>
+  </div>
+
+  <div class="card" id="g-filter-card">
+    <h3>词条管理 <span class="hint" id="g-count">0 条</span></h3>
+    <div class="body">
+      <div class="g-filter">
+        <input type="text" id="g-q" placeholder="搜索：中文 / 外文 / 别名 / 备注…">
+        <select id="g-f-status"><option value="">全部状态</option><option value="pending">待审核</option><option value="confirmed">已确认</option><option value="rejected">已拒绝</option></select>
+        <select id="g-f-rec"><option value="">全部推荐度</option><option value="rec">推荐</option><option value="allow">允许</option><option value="ban">禁用</option></select>
+        <select id="g-f-src"><option value="">全部来源</option></select>
+        <select id="g-f-tag"><option value="">全部标签</option></select>
+        <select id="g-f-type"><option value="">全部类型</option><option value="人物">人物</option><option value="概念">概念</option><option value="著作">著作</option><option value="学派">学派</option><option value="机构">机构</option><option value="事件">事件</option><option value="其他">其他</option></select>
+        <select id="g-f-col"><option value="">全部集合</option></select>
+        <button class="btn gray sm" id="g-f-reset">重置</button>
+      </div>
+      <div class="g-batch" id="g-batch">
+        已选 <b id="g-sel-n">0</b> 条：
+        <button class="btn sm" id="g-b-confirm">✓ 确认</button>
+        <button class="btn sm gray" id="g-b-pend">⏳ 待审</button>
+        <button class="btn sm gray" id="g-b-reject">✕ 拒绝</button>
+        <button class="btn sm" id="g-b-rec" title="标记为推荐译名">★ 推荐</button>
+        <button class="btn sm gray" id="g-b-ban" title="标记为禁用译名">🚫 禁用</button>
+        <button class="btn sm gray" id="g-b-merge">⇄ 合并所选</button>
+        <span style="flex:1"></span>
+        <button class="btn sm gray" id="g-b-del">🗑 删除</button>
+      </div>
+      <div style="overflow:auto;max-height:60vh;border:1px solid var(--bd);border-radius:8px">
+        <table class="g-table" id="g-table">
+          <thead><tr>
+            <th style="width:26px"><input type="checkbox" id="g-all" style="width:auto;padding:0"></th>
+            <th data-sort="zh">中文主词</th>
+            <th data-sort="foreign">外文原文</th>
+            <th>别名</th>
+            <th data-sort="type">类型</th>
+            <th>标签</th>
+            <th>来源</th>
+            <th data-sort="status">状态</th>
+            <th data-sort="recommend">推荐度</th>
+            <th style="width:110px">操作</th>
+          </tr></thead>
+          <tbody id="g-tbody"></tbody>
+        </table>
+      </div>
+      <div class="g-empty" id="g-empty">
+        <div class="big">📚</div>
+        <div>词库还是空的</div>
+        <div style="font-size:12px;margin-top:6px">点上方「导入索引 / 术语库」，支持：书后索引 TXT、术语表 CSV、Excel、JSON、TBX、PDF、DOCX</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ═══════════ 翻译工作台（v4.2 第 2 步） ═══════════ -->
+<section class="page" id="p-trans">
+<div class="wrap">
+  <div class="alert i">
+    <b>翻译工作台：</b>上传原文 → 选 Prompt 库条目 → 个性化选项 → 调模型出译文 → 一键「送校对」或「文档模式导出」。译注建议可逐条勾选入术语库/词库。
+  </div>
+
+  <!-- ① 原文输入 -->
+  <div class="card step-1">
+    <h3><span class="step-num">1</span>原文输入 <span class="hint" id="ts-srcStat">未输入</span></h3>
+    <div class="body">
+      <div id="ts-srcFileBar" class="file-bar" style="display:none"></div>
+      <input type="file" id="ts-srcFile" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.txt,.md" hidden>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn sm" id="ts-srcUpload">📂 上传原文</button>
+        <button class="btn gray sm" id="ts-srcClear">✕ 清除</button>
+        <span id="ts-srcChapterSel" style="display:flex;gap:6px;align-items:center"></span>
+      </div>
+      <textarea id="ts-src" rows="6" placeholder="粘入外文原文，或点上方「📂 上传原文」选文件（Word/PDF/图片/txt）。文档模式下，原文 docx 的图片将在导出时原样保留。"></textarea>
+    </div>
+  </div>
+
+  <!-- ② Prompt 与个性化选项 -->
+  <div class="card step-2">
+    <h3><span class="step-num">2</span>Prompt 与个性化 <span class="hint">左侧选风格指令，右侧微调偏好</span></h3>
+    <div class="body">
+      <div class="frow">
+        <div class="wide">
+          <label class="f">Prompt 库条目（手动选）</label>
+          <select id="ts-prompt">
+            <option value="">— 不使用 Prompt，用系统默认风格 —</option>
+          </select>
+          <div id="ts-promptMeta" style="font-size:11.5px;color:var(--tx3);margin-top:6px;line-height:1.7"></div>
+        </div>
+        <div style="flex:0 0 140px">
+          <label class="f">原文语言</label>
+          <select id="ts-lang">
+            <option value="auto">自动识别</option>
+            <option value="英语">英语</option>
+            <option value="德语">德语</option>
+            <option value="法语">法语</option>
+            <option value="日语">日语</option>
+            <option value="俄语">俄语</option>
+            <option value="意大利语">意大利语</option>
+            <option value="西班牙语">西班牙语</option>
+            <option value="拉丁语">拉丁语</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="frow" style="margin-top:12px">
+        <div style="flex:1;min-width:160px">
+          <label class="f">句长偏好</label>
+          <select id="ts-len">
+            <option value="short">短句（≤30 字）</option>
+            <option value="medium" selected>中句（30-60 字）</option>
+            <option value="long">长句（60 字以上）</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label class="f">直译↔意译</label>
+          <select id="ts-mode">
+            <option value="2">直译偏多</option>
+            <option value="3" selected>平衡</option>
+            <option value="4">意译偏多</option>
+            <option value="5">自由意译</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label class="f">术语锁定</label>
+          <select id="ts-term">
+            <option value="strict">严格（强制一致）</option>
+            <option value="normal" selected>常规（仅已确认）</option>
+            <option value="off">不锁定</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label class="f">术语集合</label>
+          <button class="btn sm" id="ts-btn-collections" style="width:100%">📚 选择集合</button>
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label class="f">译注</label>
+          <select id="ts-notes">
+            <option value="on" selected>生成译注建议</option>
+            <option value="off">不生成</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-term" style="width:auto"> 翻译时收集新词到译词库</label><label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-noun" checked style="width:auto"> 翻译后抽专名 + 建议译名入词库</label><button class="btn pri" id="ts-btn-run" style="padding:9px 22px">▶ 开始翻译</button>
+        <button class="btn" id="btn-pipeline" title="三段流水线：翻译 → 批评 → 精修，一次操作自动串三次调用，每段产物你过目再进下一段（v4.29.0；v4.34.0 修好卡死：重试不越位、关弹窗能重开、中断立即生效）">⚙ 三段流水线</button>
+        <button class="btn gray sm" id="ts-btn-stop" disabled>■ 中断</button>
+        <span id="ts-runStat" style="font-size:12px;color:var(--tx3);align-self:center"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 译文输出 -->
+  <div class="card step-3">
+    <h3><span class="step-num">3</span>译文输出 <span class="hint" id="ts-outHint">等待运行</span> <button class="btn gray sm" id="btn-ts-edit" title="编辑译文：查找替换、全部替换、改完保存即重渲（v4.28.0）">✏️ 编辑/替换</button></h3>
+    <div class="body">
+      <div id="ts-progress-wrap" style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
+        <div class="progress-track"><div class="progress-bar" id="ts-progress-bar"></div></div>
+        <span class="progress-txt" id="ts-progress-txt">0%</span>
+      </div>
+      <div class="out" id="ts-out" data-ph="译文将显示在这里……"></div>
+      <div class="stats" id="ts-stats" style="display:none">
+        <span>耗时 <b id="ts-s-time">—</b></span>
+        <span>原文 <b id="ts-s-src">—</b> 字</span>
+        <span>译文 <b id="ts-s-out">—</b> 字</span>
+        <span>调用 <b id="ts-s-tok">—</b></span>
+      </div>
+      <div style="gap:8px;margin-top:10px;flex-wrap:wrap" id="ts-actions" hidden>
+        <button class="btn pri sm" id="ts-btn-sendproof">→ 一键送校对</button>
+        <button class="btn sm" id="ts-btn-docout" disabled style="background:rgba(63,185,80,.12);border-color:var(--ok)">📥 下载翻译后文档</button>
+        <button class="btn sm" id="ts-btn-export-md">📤 导出 Markdown</button>
+        <button class="btn gray sm" id="ts-btn-notes">📑 提取译注入库</button>
+        <button class="btn gray sm" id="ts-btn-img" title="从译文提取关键词，为文章检索配图">🔍 配图</button>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════ Prompt 库（v4.0 第 1 步） ═══════════ -->
+<section class="page" id="p-prompt">
+<div class="wrap">
+  <div class="alert i">
+    <b>Prompt 库 = 翻译风格指令库。</b>把「按什么规则翻译」写进这里，每次翻译都自动调用，支持反推学习与团队共享。<br>
+    5 种入库方式：<b>① 从原文反推</b>（译文可选）<b>② 上传真人文章反推</b>（原文+译文对照）<b>③ 粘贴译者后记提炼</b> <b>④ 手写风格描述</b> <b>⑤ 从术语库自动提炼</b>。反推结果先预览再确认入库，不会自作主张。
+  </div>
+
+  <div class="card">
+    <h3>入库 5 种入口</h3>
+    <div class="body">
+      <div class="pm-entries">
+        <div class="pm-entry" data-source="from-original">
+          <div class="pm-icon">✨</div>
+          <div class="pm-meta">
+            <div class="pm-title">从原文反推</div>
+            <div class="pm-hint">只给原文（可粘贴或上传文件），译文可选——AI 识别文本特点，反推翻译这类文本的注意事项</div>
+          </div>
+          <button class="btn pri sm" data-act="open">打开</button>
+        </div>
+        <div class="pm-entry" data-source="from-translation">
+          <div class="pm-icon">📂</div>
+          <div class="pm-meta">
+            <div class="pm-title">上传真人文章反推</div>
+            <div class="pm-hint">给一对原文+译文（手动粘贴或上传），模型分析译者实际遵循的翻译方针</div>
+          </div>
+          <button class="btn pri sm" data-act="open">打开</button>
+        </div>
+        <div class="pm-entry" data-source="from-postscript">
+          <div class="pm-icon">📝</div>
+          <div class="pm-meta">
+            <div class="pm-title">粘贴译者后记提炼</div>
+            <div class="pm-hint">已有「译者后记」「翻译说明」时，直接贴过来提炼规则</div>
+          </div>
+          <button class="btn pri sm" data-act="open">打开</button>
+        </div>
+        <div class="pm-entry" data-source="manual">
+          <div class="pm-icon">✍️</div>
+          <div class="pm-meta">
+            <div class="pm-title">手写风格描述</div>
+            <div class="pm-hint">自己直接写一段描述（如「学术直译、长句、保留人名原文」），立即入库</div>
+          </div>
+          <button class="btn pri sm" data-act="open">打开</button>
+        </div>
+        <div class="pm-entry" data-source="from-terms">
+          <div class="pm-icon">🔍</div>
+          <div class="pm-meta">
+            <div class="pm-title">从术语库提炼</div>
+            <div class="pm-hint">分析你录的术语库/专有译词库，从译名规律反推 prompt</div>
+          </div>
+          <button class="btn pri sm" data-act="open">打开</button>
+        </div>
+      </div>
+      <input type="file" id="pm-transFile" accept=".txt,.md,.docx,.pdf" hidden>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Prompt 条目管理 <span class="hint" id="pm-count">0 条</span></h3>
+    <div class="body">
+      <div class="pm-toolbar">
+        <input id="pm-q" type="text" placeholder="搜索：名称 / 风格标签 / 来源…">
+        <button class="btn gray sm" id="pm-export">📤 导出 JSON</button>
+        <button class="btn gray sm" id="pm-import">📥 导入 JSON</button>
+        <input type="file" id="pm-file" accept=".json" hidden>
+      </div>
+      <div style="overflow:auto;max-height:60vh;border:1px solid var(--bd);border-radius:8px">
+        <table class="g-table" id="pm-table">
+          <thead><tr>
+            <th style="width:24%">名称 / 来源</th>
+            <th style="width:18%">风格标签</th>
+            <th style="width:8%">用次</th>
+            <th style="width:10%">评分</th>
+            <th style="width:30%">核心指令</th>
+            <th style="width:10%">操作</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>团队云端同步 <span class="hint">一键拉取团队共享的 Prompt 库（与术语库独立同步）</span></h3>
+    <div class="body">
+      <div class="frow" style="margin-bottom:6px">
+        <div class="wide">
+          <label class="f">共享 Prompt 库网址</label>
+          <input id="pmCloudUrl" placeholder="https://gist.githubusercontent.com/…/prompts.json">
+        </div>
+        <div style="flex:0 0 170px"><label class="f">&nbsp;</label>
+          <button class="btn pri" id="btn-pm-cloud-pull" style="width:100%">☁️ 拉取 Prompt 库</button></div>
+      </div>
+      <div id="pmCloudMsg" style="font-size:12.5px;min-height:20px;line-height:1.7"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════ 项目进度（v4.5 协作看板）═══════════ -->
+<section class="page" id="p-project">
+<div class="wrap">
+  <div class="alert i">
+    <b>项目进度看板：</b>把一次翻译工作拆成任务清单，逐项标记状态，团队共享进度。任务与状态存本地，用「导出 / 导入」在成员间同步。
+  </div>
+  <div class="card">
+    <h3>项目总览</h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <input id="proj-name" placeholder="项目名称，如《某某书》翻译" style="flex:1;min-width:200px">
+        <button class="btn sm" id="proj-rename">命名</button>
+        <button class="btn gray sm" id="proj-export">📤 导出进度</button>
+        <button class="btn gray sm" id="proj-import">📥 导入进度</button>
+        <input type="file" id="proj-file" accept=".json" hidden>
+      </div>
+      <div id="proj-stat" style="display:flex;gap:18px;font-size:13px;color:var(--tx2);margin-bottom:12px;flex-wrap:wrap"></div>
+      <div style="background:var(--bg3);border-radius:20px;height:14px;overflow:hidden;margin-bottom:4px">
+        <div id="proj-bar" style="height:100%;width:0%;background:var(--grad-ok);transition:.3s"></div>
+      </div>
+      <div id="proj-bar-txt" style="font-size:12px;color:var(--tx3);text-align:right"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>任务清单 <span class="hint" id="proj-count"></span></h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input id="task-name" placeholder="任务名，如：第三章翻译" style="flex:1;min-width:200px">
+        <input id="task-owner" placeholder="负责人（可选）" style="flex:0 0 140px">
+        <button class="btn pri sm" id="task-add">＋ 添加任务</button>
+      </div>
+      <div id="proj-list" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>反馈记录 <span class="hint" id="fb-count"></span></h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <span class="hint">你提交的报错 / 建议都会出现在这里，修完能对上号</span>
+        <span style="flex:1"></span>
+        <button class="btn gray sm" id="fb-refresh">↻ 刷新</button>
+      </div>
+      <div class="fb-list" id="fb-list"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════ 设置 ═══════════ -->
+<section class="page" id="p-set">
+<div class="wrap">
+  <div class="card">
+    <h3>界面主题 <span class="hint">明暗随环境切换，也可固定 + 自定义主题色</span></h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="theme-opt" data-theme-mode="auto">自动（跟随系统）</button>
+        <button class="theme-opt" data-theme-mode="dark">深色</button>
+        <button class="theme-opt" data-theme-mode="light">浅色</button>
+      </div>
+      <label class="f">主题色（按钮 / 高亮 / 选中态）</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="accent-swatch" data-hex="#4f8cff" style="background:#4f8cff" title="蓝色"></span>
+        <span class="accent-swatch" data-hex="#6e5cf2" style="background:#6e5cf2" title="靛紫"></span>
+        <span class="accent-swatch" data-hex="#1f9d4f" style="background:#1f9d4f" title="绿色"></span>
+        <span class="accent-swatch" data-hex="#d29922" style="background:#d29922" title="金色"></span>
+        <span class="accent-swatch" data-hex="#e24b4a" style="background:#e24b4a" title="红色"></span>
+        <span class="accent-swatch" data-hex="#18a999" style="background:#18a999" title="青色"></span>
+        <input type="color" id="accentPicker" value="#4f8cff" style="width:42px;height:32px;padding:0;border-radius:8px;cursor:pointer;margin-left:4px" title="自定义颜色">
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>开屏动画 <span class="hint">打开工具时 3 秒问候页；标语 / 装饰可自定义，亮暗随主题，纯视觉不挡任何操作</span></h3>
+    <div class="body">
+      <label style="display:flex;gap:7px;align-items:center;cursor:pointer;margin-bottom:12px">
+        <input type="checkbox" id="splash-on"> 启用开屏动画（关闭则完全不加载）
+      </label>
+      <label class="f">问候标语（跟在「你好，欢迎回来」下面那句）</label>
+      <input id="splash-slogan" placeholder="译校有我，落笔无忧" style="width:100%;margin-bottom:12px">
+      <label class="f">装饰符号</label>
+      <select id="splash-deco" style="width:100%">
+        <option value="d1">星芒 ✦ ── ◆ ── ✧</option>
+        <option value="d2">线流 ─═══════════════─</option>
+        <option value="d3">终端 ╭─▄▀ ▊▍▍▋</option>
+        <option value="d4">花括号 〔 ❖ 〕</option>
+      </select>
+    </div>
+  </div>
+  <div class="card">
+    <h3>模型接口配置</h3>
+    <div class="body">
+      <div class="alert w" id="keyWarn" style="display:none">
+        <b>还没配置 API Key。</b> 请先按「使用指南」申请一个，然后填到这里。
+      </div>
+      <div class="grid2">
+        <div>
+          <label class="f">服务商</label>
+          <select id="provider" style="width:100%;margin-bottom:12px"></select><!-- 选项由 renderProviderOptions() 按 PROVIDERS 动态生成 -->
+          <label class="f">接口地址 Base URL</label>
+          <input id="baseUrl" placeholder="https://api.deepseek.com">
+        </div>
+        <div>
+          <label class="f">模型名</label>
+          <input id="model" placeholder="deepseek-chat" style="margin-bottom:12px">
+          <label class="f">API Key</label>
+          <input id="apiKey" type="password" placeholder="sk-...">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:12px">
+        <div style="flex:0 0 230px"><label class="f">原文最大字数（翻译）</label><input id="maxInChars" type="number" value="80000" min="10000" step="10000"><div style="font-size:11px;color:var(--tx3);margin-top:3px">超过会被截断；实际能翻多长取决于模型上下文</div></div>
+        <div style="flex:0 0 230px"><label class="f">单次最大输出 tokens</label><input id="maxTok" type="number" value="16000" min="512" step="512"><div style="font-size:11px;color:var(--tx3);margin-top:3px">不够会被截断。中文 1 字 ≈ 1.5 token</div></div>
+        <div style="flex:0 0 190px"><label class="f">温度（越低越稳）</label><input id="temp" type="number" value="0.3" min="0" max="2" step="0.1"></div>
+        <div style="flex:0 0 190px"><label class="f">超时（秒）</label><input id="timeout" type="number" value="180" min="30" step="30"></div>
+        <div style="flex:3;min-width:260px"><label class="f">结果推送 Webhook（可选 · 校对完成后 POST 结果到此地址）</label><input id="webhook" placeholder="https://你的服务器/接收接口"></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--tx3)">
+        <span>输出 tokens 预设：</span>
+        <button class="btn sm gray" data-preset-tok="4000">短文 4K</button>
+        <button class="btn sm gray" data-preset-tok="8000">中等 8K</button>
+        <button class="btn sm gray" data-preset-tok="16000">长段 16K</button>
+        <button class="btn sm gray" data-preset-tok="32000">超长 32K</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--tx3)">
+        <span>原文字数预设：</span>
+        <button class="btn sm gray" data-preset-chars="80000">8 万</button>
+        <button class="btn sm gray" data-preset-chars="150000">15 万</button>
+        <button class="btn sm gray" data-preset-chars="200000">20 万</button>
+        <button class="btn sm gray" data-preset-chars="300000">30 万</button>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn pri" id="btn-save">保存配置</button>
+        <button class="btn" id="btn-test">测试连接</button>
+        <span style="font-size:12.5px;align-self:center" id="testMsg"></span>
+      </div>
+      <div class="alert i" style="margin-top:14px">
+        <b>关于隐私：</b>API Key 与全部数据仅保存在<strong>你自己电脑的浏览器</strong>里，不会上传到任何第三方服务器。唯一的对外请求是发往你上面填写的模型接口。共用电脑建议用完点「清除全部数据」。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>校对历史 <span class="hint" id="histCount">最近 20 次</span></h3>
+    <div class="body">
+      <div class="twrap" style="max-height:300px">
+        <table id="histTable"><thead><tr>
+          <th style="width:150px">时间</th><th>内容摘要</th><th style="width:170px">操作</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+      <div style="margin-top:10px"><button class="btn gray sm" id="btn-hist-clr">清空历史</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>翻译记忆 <span class="hint">校对过的句子自动记住，下次相同原文直接复用（省 token）</span></h3>
+    <div class="body">
+      <div style="font-size:12.5px;color:var(--tx2);margin-bottom:10px">已存 <b id="tm-count">0 条</b> 句对。校对完成后自动学习「原文句 → 定稿句」；下次遇到完全相同的句子，AI 会原样保留定稿、跳过重翻。</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn gray sm" id="tm-clear">清空记忆</button></div>
+      <div id="tm-list" style="max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>数据管理</h3>
+    <div class="body">
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn sm" id="btn-backup">导出全部数据（备份）</button>
+        <button class="btn sm" id="btn-restore">导入备份</button>
+        <button class="btn sm gray" id="btn-wipe" style="color:var(--err);border-color:#5c1f24">清除全部数据</button>
+        <input type="file" id="bakFile" accept=".json" hidden>
+      </div>
+      <div style="font-size:12px;color:var(--tx3);margin-top:10px" id="dataStat"></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════════ 指南 ═══════════ -->
+<section class="page" id="p-help">
+<div class="wrap">
+  <div class="card">
+    <h3>这是个什么工具？（30 秒了解）</h3>
+    <div class="body">
+      <p style="font-size:14px;line-height:2;margin-bottom:12px">
+        一句话：<b>它是一位住在你电脑里的 AI 翻译校对员。</b>你把<b>外文原文</b>和<b>你的中文译文</b>交给它，它逐句对照，揪出<b>漏译、翻错、翻译腔</b>，告诉你怎么改、为什么这么改；顺带统一全书译名、规范标点格式。
+      </p>
+      <table>
+        <thead><tr><th style="width:50%">✅ 它能帮你做</th><th>❌ 它替你做不了</th></tr></thead>
+        <tbody>
+          <tr><td>逐句对照原文，揪出漏译、误译、翻得别扭的地方</td><td>替你拍板最终译文——最后审读必须是你</td></tr>
+          <tr><td>统一译名：写进术语库的词，每次校对都强制照办</td><td>自动发布到公众号/小红书（平台没开放此权限）</td></tr>
+          <tr><td>指出哪句该加译注、注释怎么写</td><td>一次吃下一整本书（建议按章分批）</td></tr>
+          <tr><td>上传 Word / PDF 直接校对，图片排版原样保留</td><td>保证百分百正确——AI 偶尔会看走眼，请交叉核对</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:14px">
+        <b>它的本质：</b>一个网页文件（就是你现在打开的这个），背后接了一个大模型——相当于请了一位 24 小时在线、读过无数书的校对员，按量付薪，校对一篇三千字的文章大约花<b>几分钱</b>。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>效果演示：校对前后，30 秒看懂它干什么</h3>
+    <div class="body">
+      <p style="font-size:14px;line-height:2;margin-bottom:12px">
+        下面是一段<b>真实比例的示例</b>（英译中，三处典型毛病）。点按钮切换「校对前 / 校对后」：
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn sm pri" id="dm-btn-a" onclick="tpDemo('a')">👀 校对前：你贴进来的</button>
+        <button class="btn sm" id="dm-btn-b" onclick="tpDemo('b')">✨ 校对后：它返给你的</button>
+      </div>
+
+      <div id="dm-before">
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:12px">
+          <div class="hint" style="margin-bottom:8px">原文（英文）</div>
+          <div style="font-size:15px;line-height:1.8">In 1884 the committee decided to table the motion; hegemony remained the official term in all later reports.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:16px">
+          <div class="hint" style="margin-bottom:8px">你的译文（还没校对——毛病看不出来，对吧？）</div>
+          <div style="font-size:15px;line-height:1.8">1884 年，委员会决定把这个动议摆到桌上；霸权主义仍然是之后所有报告中的官方用语。</div>
+        </div>
+      </div>
+
+      <div id="dm-after" style="display:none">
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:12px">
+          <div class="hint" style="margin-bottom:8px">① 修订后译文（改好的部分标了色）</div>
+          <div style="font-size:15px;line-height:1.8">1884 年，委员会决定将该动议<span style="color:var(--err);font-weight:600">搁置</span>；此后所有报告均沿用<span style="color:var(--ac);font-weight:600">「霸权」</span>这一官方术语。</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:12px">
+          <div class="hint" style="margin-bottom:8px">② 批注：每条开头挂方章，先救哪条一眼看出</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.7">
+            <div><span class="t-tag" style="color:var(--err)">危</span><b>误译：</b>table 在议事务境里是「搁置」，不是「摆到桌上」——已替你改好</div>
+            <div><span class="t-tag" style="color:var(--ac)">术</span><b>术语不一致：</b>hegemony 你定过译「霸权」，这里却译成「霸权主义」——已统一；决策面板还能一键入库，全文生效</div>
+            <div><span class="t-tag" style="color:var(--warn)">议</span><b>语体：</b>后半句被动堆叠读着绕——已收紧为「此后所有报告均沿用…」</div>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:16px">
+          <div class="hint" style="margin-bottom:8px">③ 它还会顺手记住</div>
+          <div style="font-size:13.5px;line-height:1.7">术语库与翻译记忆自动更新——同样的错<b>下次不会再犯</b>；改动可一键导回原文 Word（修订痕迹逐条接受或拒绝）。</div>
+        </div>
+      </div>
+
+      <div class="alert i" style="margin-top:16px">
+        <b>一句话：</b>你只管贴，它负责改好 + 说明白 + 记住。看完这里就可以接着下面的「<b>第一次使用：跟着做，只要 3 步</b>」，跑通你的第一遍。
+      </div>
+    </div>
+  </div>
+  <script>
+  function tpDemo(which){
+    document.getElementById('dm-before').style.display = which === 'a' ? '' : 'none';
+    document.getElementById('dm-after').style.display  = which === 'b' ? '' : 'none';
+    document.getElementById('dm-btn-a').classList.toggle('pri', which === 'a');
+    document.getElementById('dm-btn-b').classList.toggle('pri', which === 'b');
+  }
+  </script>
+
+  <div class="card">
+    <h3>它到底是怎么工作的？（想用得放心，建议读一遍）</h3>
+    <div class="body">
+      <div class="alert i" style="margin-bottom:14px">
+        <b>先说最重要的一句：</b>这个工具<b>自己不会翻译，也不会判断对错</b>。它做的是——把你的要求整理成一份极其详细的「说明书」，交给大模型，再把回话整理好递给你。真正读句子、找问题、给改译的，是你在设置里填的那个大模型（DeepSeek / GPT / Claude 等）。<b>它是一个极其讲究的「下单员」：你下的单越清楚，回的货越好。</b>
+      </div>
+
+      <p style="font-size:14px;line-height:1.9;margin-bottom:10px"><b>一次校对，背后只有五步：</b></p>
+      <div class="steps">
+        <div class="step"><div><b>第 1 步 · 你填。</b> 原文、译文，加上语种、文体、目标读者、术语库、临时要求……</div></div>
+        <div class="step"><div><b>第 2 步 · 它拼。</b> 把你填的这一切，拼成一份十层结构的指令（见下表）。这一步是它唯一真正干的活。</div></div>
+        <div class="step"><div><b>第 3 步 · 它发。</b> 把指令和你的文本打包，一次性发给大模型接口。</div></div>
+        <div class="step"><div><b>第 4 步 · 模型生成。</b> 这一步是<b>唯一的黑箱</b>——谁也看不见它怎么想，包括写这个工具的人。</div></div>
+        <div class="step"><div><b>第 5 步 · 它整理。</b> 收回来，折叠批注、按 <code>[误译]</code> 这类标记做分类统计、挑出争议词让你点选，并把「原文 → 定稿译文」的句对自动存进翻译记忆，下次遇到同样的句子就不再重翻。</div></div>
+      </div>
+
+      <p style="font-size:14px;line-height:1.9;margin:14px 0 8px"><b>你填的每一项，最后去了哪里：</b></p>
+      <table>
+        <thead><tr><th style="width:30%">你在界面上填的</th><th style="width:26%">在指令里变成</th><th>起什么作用</th></tr></thead>
+        <tbody>
+          <tr><td>语种 / 文体 / 目标读者 / 风格</td><td>任务参数段</td><td>决定它用什么口气、什么深度去改</td></tr>
+          <tr><td>术语库</td><td>「必须无条件遵守」的强制译名表（最多 300 条）</td><td>保证全书译名统一，不符就改并注明</td></tr>
+          <tr><td>全局风格偏好</td><td>「优先级高于通则」段</td><td>你的习惯压过默认规则</td></tr>
+          <tr><td>本次特别指示</td><td>「最高优先级」段</td><td>临时要求压过一切</td></tr>
+          <tr><td>勾选的争议点 / 注释 / 标点 / 去机器腔</td><td>各自独立的规则段</td><td>决定它额外操心哪些事</td></tr>
+          <tr><td>翻译记忆（自动）</td><td>三档参考：原样保留 / 微调复用 / 仅供参考</td><td>同一句话不翻第二遍，保持前后一致</td></tr>
+          <tr><td>（固定）七条校对准则</td><td>忠实优先、术语一致、不越界等</td><td>兜住底线，防止它自由发挥</td></tr>
+          <tr><td>（固定）输出格式要求</td><td>必须输出「修订后译文 + 逐条批注 + …」</td><td>让结果能被程序自动解析和统计</td></tr>
+        </tbody>
+      </table>
+
+      <p style="font-size:14px;line-height:1.9;margin:14px 0 8px"><b>为什么要分「一校」和「二校」？</b>因为一次让模型干两件事，它会顾此失彼。所以拆成两次独立运行：</p>
+      <table>
+        <thead><tr><th style="width:18%"></th><th style="width:44%">只管什么</th><th>明令禁止</th></tr></thead>
+        <tbody>
+          <tr><td><b>一校</b></td><td>硬伤：漏译、增译、误译、术语不一致、歧义、逻辑关系、数字日期</td><td>不许润色文风</td></tr>
+          <tr><td><b>二校</b></td><td>文风：去机器腔、优化中文表达、统一语体与标点</td><td>不许改动语义与术语译名</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:14px;line-height:1.9;margin-top:10px">先「改对」，再「改好」——这是它设计上最讲究的一处。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>能放心吗？三道保险、三层边界与已知局限</h3>
+    <div class="body">
+      <p style="font-size:14px;line-height:1.9;margin-bottom:8px"><b>它内置了三道保险，替你盯着质量：</b></p>
+      <table>
+        <thead><tr><th style="width:24%">保险</th><th style="width:46%">它做什么</th><th>你要做什么</th></tr></thead>
+        <tbody>
+          <tr><td><b>校对前质量预估</b></td><td>正式动手前先快速扫一眼，给出 0–100 分、等级、问题最集中的段落、以及建议先做一校还是二校</td><td>看一眼，决定用哪个深度</td></tr>
+          <tr><td><b>术语硬注入</b></td><td>术语表直接写进指令，译文不符就改正并注明「按术语表统一」</td><td>把术语库填扎实</td></tr>
+          <tr><td><b>疑难句标注</b></td><td>最多挑 8 处真正影响理解的地方，给出候选译法、推荐项和<b>把握度（高 / 中 / 低）</b>——<b>只提议，绝不擅自改写</b></td><td><b>由你拍板</b>；标「低」的务必自己核一遍</td></tr>
+        </tbody>
+      </table>
+
+      <p style="font-size:14px;line-height:1.9;margin:14px 0 8px"><b>说句实话：黑箱到底在哪一层？</b></p>
+      <table>
+        <thead><tr><th style="width:38%">环节</th><th style="width:14%">状态</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>参数怎么填、术语怎么注入、格式怎么要求、结果怎么解析</td><td><b>白箱</b></td><td>完全可查可控，你说了算</td></tr>
+          <tr><td>十条指令里哪条起了作用、它为什么这么判断</td><td><b>灰箱</b></td><td>无法精确归因</td></tr>
+          <tr><td>模型内部的推理过程</td><td><b>黑箱</b></td><td>谁都看不见，包括写这个工具的人</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:12px">
+        <b>所以准确的说法是：</b>工具不是黑箱，模型才是。这个工具做的全部事情，是把黑箱的<b>输入</b>尽量规范化、可复现、可约束——它提高的是「下单质量」，而不是消除不确定性。<b>最后签字的人，始终是你。</b>
+      </div>
+
+      <p style="font-size:14px;line-height:1.9;margin:14px 0 8px"><b>已知局限（必须知道）：</b></p>
+      <div class="alert w">
+        <div>· 结果的格式靠「约定」而非程序强制，模型偶尔不守规矩，个别条目可能没被统计到——重要稿件请自己扫一遍原文对照。</div>
+        <div>· 模型有可能<b>编造译法的出处</b>。指令里已明令「不得编造、不确定须明确声明」，但这只能压制、不能根除。</div>
+        <div>· 校对是<b>整篇一次发送</b>，超长文本可能被截断，建议按章分批。</div>
+        <div>· 设置里的「温度」参数越高，模型越发散；做严谨校对建议调低。</div>
+        <div>· 术语表<b>最多注入 300 条</b>，超出的本次不生效。</div>
+      </div>
+
+      <p style="font-size:14px;line-height:1.9;margin:14px 0 8px"><b>想让它更准，按收益从高到低做这五件事：</b></p>
+      <div class="steps">
+        <div class="step"><div><b>① 把术语库填扎实。</b> 这是收益最高的一件事——术语是唯一被「强制」执行的部分，其余都是建议。</div></div>
+        <div class="step"><div><b>② 在「全局风格偏好」里写清你的固定要求。</b> 它的优先级高于默认通则，一次写好后每次都生效。</div></div>
+        <div class="step"><div><b>③ 关键稿子走完整流程：</b>一校 → 二校 → 精修。别指望一步到位。</div></div>
+        <div class="step"><div><b>④ 长文按章分批</b>，别一次塞一整本书。</div></div>
+        <div class="step"><div><b>⑤ 疑难句标注里标「把握度：低」的条目</b>，务必自己核一遍——那是模型自己都没底的判断。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>第一次使用：跟着做，只要 3 步</h3>
+    <div class="body">
+      <div class="steps">
+        <div class="step"><div><b>第 1 步 · 领一把「钥匙」。</b> AI 校对能力来自大模型，需要你先申请一把钥匙（学名 API Key，就是一串 <code>sk-</code> 开头的字符）。推荐 DeepSeek：注册就送额度、国内直接访问。怎么领？往下翻，有手把手教程。</div></div>
+        <div class="step"><div><b>第 2 步 · 把钥匙装进工具。</b> 点顶部「<b>设置</b>」标签页，把那串字符粘进「API Key」框，点「测试连接」。看到绿色提示，就装好了。</div></div>
+        <div class="step"><div><b>第 3 步 · 开始校对。</b> 点顶部「<b>校对工作台</b>」，左边贴原文、右边贴译文（也可以直接上传文档），点「开始校对」，等 1–2 分钟看结果。就这么简单。</div></div>
+      </div>
+      <div class="alert w" style="margin-top:14px">
+        <b>建议：</b>第一次拿一篇一两千字的短文练手，熟悉它的批注风格后，再上正式稿。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>顶部八个标签页，分别是干什么的</h3>
+    <div class="body">
+      <table>
+        <thead><tr><th style="width:110px">标签页</th><th>白话解释</th><th style="width:150px">什么时候去</th></tr></thead>
+        <tbody>
+          <tr><td><b>校对工作台</b></td><td>干主活的地方。左边放原文、右边放译文，中间勾选校对要求，点「开始校对」。结果分三块：修订后译文、逐条批注、术语与争议点</td><td>每次校对都在这</td></tr>
+          <tr><td><b>翻译工作台</b></td><td>从零翻译的地方：贴外文、选目标语言和体裁，AI 出初稿；还能一键把译文送进校对工作台继续校</td><td>需要 AI 起草译文时</td></tr>
+          <tr><td><b>项目进度</b></td><td>整本书的「工程看板」：每章校到哪一步、有没有完成，一目了然；进度可导出导入、换电脑不丢</td><td>做长篇、整本书时</td></tr>
+          <tr><td><b>术语库</b></td><td>你的「译名规矩本」。写进去的词（如 hegemony → 霸权），每次校对都强制遵守，管住同一批文章的译名统一</td><td>开始用之前录一遍，一劳永逸</td></tr>
+          <tr><td><b>专有译词库</b></td><td>「批量收词器」。把一本译作的书后索引、或别人整理好的术语表（Word / Excel / PDF 都行）整个丢进去，它自动抽词、查重、合并，你审一遍就能整批转入术语库</td><td>想搭大型词库时</td></tr>
+          <tr><td><b>Prompt 库</b></td><td>存你的「校对风格配方」：不同项目（学术书、小说、公众号文）存不同指令，一键切换，不用每次重写</td><td>换项目类型时</td></tr>
+          <tr><td><b>设置</b></td><td>装钥匙、换服务商（24 家一键切换）、存风格偏好、开屏样式、备份与恢复数据</td><td>第一次用，以及换电脑时</td></tr>
+          <tr><td><b>使用指南</b></td><td>就是本页。忘了怎么用，回来翻</td><td>随时</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>两种用法：贴文字，还是传文档？</h3>
+    <div class="body">
+      <div class="steps">
+        <div class="step"><div><b>用法 A · 粘贴文字（最常用）：</b>复制原文和译文，分别贴进左右两个输入框，按需勾选「校对要求」，点「开始校对」。适合文章、论文、单章稿件。</div></div>
+        <div class="step"><div><b>用法 B · 上传文档（省事）：</b>输入框上方有「上传文件」按钮，直接选 Word（.docx）或 PDF。原文区还支持扫描版 PDF 和图片（会自动做文字识别）。工具自动按章节切开，你勾选要校对哪几章，点「载入所选章节」即可。上传按钮旁边的「🧽 原文整理 / 译文整理」可以先把转写乱序的噪声文本排序、重分段、去噪（Ctrl+Z 可撤销）。</div></div>
+        <div class="step"><div><b>文档模式 · 原样保留排版（新）：</b>如果译文是排好版的 Word（带图片、字体、格式），在译文区勾上「<b>文档模式校对</b>」再开始。校对完有两个选择：「导出校对后 Word」= <b>图片排版原样保留、只替换文字</b>；「导回修订模式」= 改动变成 <b>Word 修订痕迹</b>，在 Word 审阅页逐条接受/拒绝，适合想自己把关每一处改动的场景。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>校对好帮手：工具栏「运行 / 输出 / 工具 / 文档」四组按钮怎么用</h3>
+    <div class="body">
+      <table>
+        <thead><tr><th style="width:190px">按钮</th><th>它是干什么的</th></tr></thead>
+        <tbody>
+          <tr><td><b>▶ 开始校对</b></td><td>主流程：逐句对照原文与译文，产出修订稿 + 批注 + 术语争议</td></tr>
+          <tr><td><b>⚡ 质量预估</b></td><td>正式校对前花一点 token 快速「体检」：译文什么水平、问题集中在哪几段、建议一校还是二校</td></tr>
+          <tr><td><b>⚠ 疑难标注</b></td><td>AI 把歧义/指代不清/ASR 乱码/读着别扭的句子<b>挑出来给你看</b>，每条附候选译法。你点「纳入译文」才生效，也可以自己改写或跳过——<b>AI 只提议，你拍板</b></td></tr>
+          <tr><td><b>🧽 原文/译文整理</b></td><td>语音转写、OCR 出来的乱序噪声文本，先整理再校对：排序、重分段、去噪，不删内容不改风格，Ctrl+Z 可撤销</td></tr>
+          <tr><td><b>🏷 本章注释</b></td><td>整书 PDF 自动提取文中数字标号脚注与书末尾注，批量翻译后勾选贴到本章译文末尾（可选只贴译文/只贴原文/双语，可移除）</td></tr>
+          <tr><td><b>📋 改动对照</b></td><td>一眼看出 AI 改了哪几处、改成啥，零 token</td></tr>
+          <tr><td><b>📊 三栏对照</b></td><td>原文｜原译｜修订 三栏逐句对齐，改动处红删绿增，可整表复制到 Word / Excel（v4.30.0）</td></tr>
+          <tr><td><b>📤 复制 / 转公众号 /  Markdown</b></td><td>结果三种去向：纯修订稿（可勾选段落）、公众号富文本、Markdown</td></tr>
+          <tr><td><b>📥 导出校对后 Word / 导回修订模式</b></td><td>见上一张卡片「文档模式」</td></tr>
+          <tr><td><b>🤖 核查（v4.27 新）</b></td><td>术语库/译词库/决策面板里问 AI「这个选项收录得对吗」——好选项一键采用入库，坏选项打回，错误选项不再混进可选项</td></tr>
+          <tr><td><b>☑ 标记已修（v4.27 新）</b></td><td>每条批注可标「已修」：顶部出现「未修 N」筛选与「已修 x/N」进度，提醒闭环——报了的问题一个个划掉，不只报不管</td></tr>
+          <tr><td><b>✏ 译文里标红就地改（v4.27 新）</b></td><td>批注对应位置的修订译文会标红，点一下直接编辑、回车生效——改错不用再跑一遍校对</td></tr>
+          <tr><td><b>🔎 专名体检（v4.28 新）</b></td><td>一键本地体检（不花 token）：人名、历史事件等专有名词的「同名异译 / 疑似未译 / 数字对不上」三类问题一次抓出，弹窗里选统一译法、一键全局替换</td></tr>
+          <tr><td><b>✏ 编辑/替换（v4.28 新）</b></td><td>校对结果和翻译输出都能直接编辑：像 Word 一样查找、替换、全部替换（显示找到几处），改完「保存并重渲」立即生效；也可放弃修改还原</td></tr>
+          <tr><td><b>🗂 批注去重（v4.29 新）</b></td><td>AI 有时会把同一条修改重复好几遍——现在重复的批注自动折叠成一条，边上标「×3 重复已折叠」，不用再一条条翻</td></tr>
+          <tr><td><b>⚙ 三段流水线（v4.29 新 · v4.34 修好卡死）</b></td><td>翻译页新按钮：初稿 → 批评 → 精修三段接力。第二个 AI 当审校只挑毛病出清单，第三个按清单精修；每段停下给你过目，你点「下一段」才继续。以前跑到一半会卡住、重试几次按钮就没反应、关掉弹窗再开也点不动——这些都修好了：重试永远重跑同一段（不会跑歪）、关掉弹窗=取消本段、「中断」点下去立刻生效不再干等 3 分钟。线上报错还会自动上报，开发端看门狗发现了会及时修</td></tr>
+          <tr><td><b>🧩 段落对齐（v4.31 新）</b></td><td>一键本地体检（不花 token）：原文与译文的段落逐段比对，缺段 / 多段 / 空段直接标出是第几段、贴出对应原文，专治整段漏译；校对跑完也会自动提醒一次</td></tr>
+          <tr><td><b>✅ 术语已批准（v4.32 新）</b></td><td>专有译词库的词条分「待审 / 已批准 / 已拒绝」三态：校对只锁定「已批准」的译法，待审和已拒绝的不强制；每行一键「批准 / 待审 / 拒绝」，也可让 AI 核查后直接一键批准。改了已批准的译法会自动打回待审，避免悄悄改动权威译名</td></tr>
+          <tr><td><b>🔢 数字体检（v4.33 新）</b></td><td>一键本地体检（不花 token）：把原文和译文的数字逐个对账——丢了的、凭空多出来的、百分号弄丢的，还有整段漏掉否定词（not / 不 / 无）的，全部标出是第几处并贴出上下文；「1,500 → 1.5万」这类换算不会误报。校对跑完也会自动提醒一次</td></tr>
+           <tr><td><b>🩺 体检中心 + 📊 译文总评分（v4.36 新）</b></td><td>工具组的「🩺 体检中心」把术语、专名、段落、数字这四项体检收在一起，每一项都能自己勾要不要做，点「▶ 一键体检」就出一张结果表，哪项有问题一眼看到，还能点「看细节」跳回原来那项。里面还有两个新东西：<b>📊 译文总评分</b>——在你电脑上直接算出 0 到 100 分，给 S / A / B / C / D 的等级，把分数拆成「忠实度 60 分」和「流畅度 40 分」，每扣一分都写清楚扣在哪（数字丢了、整段没翻、术语没按你批准的词、英文没翻干净、网址邮箱编号被弄丢，都会点名）；<b>🎛 风格简报</b>——按你上面选的「体裁调性」给一份 5 条的检查清单，翻译校对时照着走。全部在你电脑上算，不花钱</td></tr>
+           <tr><td><b>🔣 标点·书名号对账（v4.37 新）</b></td><td>一键本地体检（不花 token）：把原文和译文的书名号《》、括号、引号、问号、叹号、破折号、省略号逐个对账——漏标、多标、括号没闭合的硬伤全部标出。标点这种纯机械的错，AI 根本看不见、但编辑一眼就挑出来；本地数个数就能查，不花 token。只报可疑、以人工复核为准</td></tr>
+           <tr><td><b>📝 翻译腔体检（v4.38 新）</b></td><td>一键本地体检（不花 token）：查句末落「的」、「的」字堆叠、「作为…的东西」「被…所」这类日式/欧化翻译腔和套话直译——AI 改完还留的那股"翻译味儿"，本地正则就能揪出来。只报可疑、以人工复核为准</td></tr>
+           <tr><td><b>🔎 专名核验 + 术语表回填（v4.39 新）</b></td><td>翻译页勾「翻译后抽专名」，译完自动把专名和建议译名收进专有译词库（待审核）；译词库新面板「🔎 专名核验」里 AI 批量核验、人工回填真 URL 依据、一键批准，再「🔗 一键统一全文」把括号绑定的别名写法统一成批准译法。核验要调 AI（花 token），统一在你电脑本地完成</td></tr>
+          <tr><td><b>🏷 左下角版本显示（v4.39.1 新）</b></td><td>页面最底端左下角常驻显示当前版本号，网页端和插件端同款，报错/核对时一眼就能看到自己用的是哪一版</td></tr>
+           <tr><td><b>📋 交付质检报告（v4.40 新）</b></td><td>校对结果按钮行新增「📋 交付报告」：把错误分类、已修进度、质量评分（本地算分；跑过 AI 质量预估也带上）、检查覆盖汇总成一张可复制 Markdown 报告，页脚带 TransProof 名片——交稿时一句话说清「查了什么、还剩什么风险」（纯本地、不花 token）</td></tr>
+           <tr><td><b>🔎 专名百科自动查证（v4.41 新）</b></td><td>专有译词库「专名核验」卡片每行新增「🔎 查维基」：按外文名查中英维基百科，带回通行译名 + 简介 + 真 URL，人工确认后入词库；已批准专名的背景简介会自动带进翻译/校对提示词。查不到或被拦时给友好提示（开代理 / 换渠道）</td></tr>
+          <tr><td><b>🌱 一边译一边填术语表（v4.42 新）</b></td><td>翻译页再勾「翻译时收集新词到译词库」，译完自动把新术语、专业词、反复出现的关键词连同建议译名收进译词库（默认待审核，与「抽专名」互不干扰、自动去重）——术语库不用手敲，越翻越全</td></tr>
+          <tr><td><b>📎 导出引用头（v4.43 新）</b></td><td>复制结果弹窗顶部新增「📎 引用头」：可选粘贴 ①中译标题 ②作者（中译名）+ 研究机构 ③APA 格式出处 ④版权声明（CC BY-NC-SA 4.0，仅供个人学习），四样都可勾选；元数据点「🤖 自动提取」从原文抽、查不到的手填，勾选后拼在译文最前面一起复制</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:12px">
+        <b>开屏小彩蛋：</b>每次打开工具会先亮 3 秒欢迎页（按时段问好 + 一句标语）。想换标语、换装饰动画、或者干脆关掉，去「设置 → 界面主题」旁边那块改。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>界面认一认：v4.25 新排版长什么样</h3>
+    <div class="body">
+      <p style="font-size:14px;line-height:2;margin-bottom:12px">
+        这版把界面按「瑞士网格」重排了一遍——看着更整齐、读着不累眼，功能一个没变。认四样东西就够：
+      </p>
+      <table>
+        <thead><tr><th style="width:170px">看到什么</th><th>白话解释</th></tr></thead>
+        <tbody>
+          <tr><td><b>批注前的方章</b>：危 / 检 / 术 / 议</td><td>每条批注开头挂一个 1px 边框的小方块字——<b style="color:var(--err)">危</b>=翻错了（误译/漏译/增译），<b>检</b>=逻辑要核对（歧义/标点/逻辑关系），<b style="color:var(--ac)">术</b>=术语不统一，<b>议</b>=只是润色建议。扫一眼方章就知道先救哪条</td></tr>
+          <tr><td><b>正文用「读书字体」</b></td><td>校对结果和左右输入框换成了 16px 宋体系衬线字、行距放宽——长文校对眼睛不累；按钮菜单仍是利落黑体，数字编号全部等宽对齐</td></tr>
+          <tr><td><b>更窄的版面 + 发丝线</b></td><td>内容区从 1500px 收窄到 1200px（眼睛不用左右扫），框线换成若有若无的细线，间距全部对齐 4px 网格，整页自动「齐」</td></tr>
+          <tr><td><b>亮暗两套字重</b></td><td>暗色模式字略细、亮色模式字略粗，深底不糊眼、浅底够清楚；切换「设置 → 界面主题」立即生效</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:12px">
+        <b>零下载：</b>所有字体都用你电脑/浏览器自带的，<b>不连任何字体服务器</b>——断网、墙内、老电脑都照常显示，也不会拖慢打开速度。
+      </div>
+      <p style="font-size:13px;line-height:1.8;color:var(--tx2);margin-top:8px"><b>v4.25.1 小更新：</b>内部代码拆成 10 个模块按序加载——打开更快、以后更新更稳，界面和功能零变化。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>手把手教程：申请 DeepSeek 钥匙（第 1 步用）</h3>
+    <div class="body">
+      <div class="steps">
+        <div class="step"><div>浏览器打开 <b>platform.deepseek.com</b>（国内可直接访问，无需特殊网络）。</div></div>
+        <div class="step"><div>点右上角「注册 / 登录」，用<b>手机号</b>或邮箱注册。手机号最快。</div></div>
+        <div class="step"><div>登录后进入左侧「<b>API keys</b>」，点「创建 API key」，起个名字（比如 proofreader）。</div></div>
+        <div class="step"><div><b>立刻复制那串 <code>sk-</code> 开头的字符。</b> 页面关掉后就再也看不到完整 Key 了，只能重建。建议顺手存到密码管理器。</div></div>
+        <div class="step"><div>左侧「<b>充值</b>」或「账户余额」。DeepSeek 按 token 计费，充 10 元够校对几十上百篇文章。新账号通常有少量赠送额度可先试用。</div></div>
+        <div class="step"><div>回到本工具「设置」页，服务商选 <b>DeepSeek 官方</b>，把 Key 粘进 API Key 框，点「测试连接」。</div></div>
+      </div>
+      <div class="alert w" style="margin-top:16px">
+        <b>费用参考：</b>校对一篇 5000 字的译文（含原文约 1 万 token 输入、3 千 token 输出），成本通常在 <b>0.01–0.05 元</b>之间。比人工校对的时间成本低几个数量级。
+      </div>
+      <div class="alert i" style="margin-top:10px">
+        <b>其他可选服务商：</b>小米 MiMo、通义千问（阿里云百炼）、智谱 GLM、Kimi、火山方舟豆包、百度千帆、腾讯混元、硅基流动、MiniMax、阶跃星辰；国外的 OpenAI / Claude / Gemini / Grok / Mistral，还有 OpenRouter 聚合和 Ollama 本地模型 —— 全都在「设置」页服务商下拉里<b>一键切换</b>（选中即自动填好接口地址和模型名）。哪家有免费额度就先用哪家。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>进阶：格式与注释建议（加进「全局风格偏好」即可生效）</h3>
+    <div class="body">
+      <p style="font-size:13px;color:var(--tx2);line-height:1.9;margin-bottom:12px">
+        这几个方向在翻译校对里容易被忽略，但对成品质量影响很大。可以逐条加进你的「全局风格偏好」：
+      </p>
+      <table>
+        <thead><tr><th style="width:150px">方向</th><th>可以写成偏好指令</th></tr></thead>
+        <tbody>
+          <tr><td><b>标点统一</b></td><td>中文正文用全角标点；引号用「」，引文内引号用『』；破折号用——（两个连字符占满一格）</td></tr>
+          <tr><td><b>数字用法</b></td><td>世纪、年份统一用阿拉伯数字；「二十世纪」不改「20世纪」，全文择一</td></tr>
+          <tr><td><b>人名处理</b></td><td>首次出现「中文译名（原名，生卒年）」，如「福柯（Michel Foucault, 1926–1984）」；后续只用中文</td></tr>
+          <tr><td><b>书名处理</b></td><td>书名、期刊名用《》；篇名、论文用〈〉；附原文时写成《规训与惩罚》（Surveiller et punir）</td></tr>
+          <tr><td><b>术语首现</b></td><td>关键概念首次出现时附原文与译注，如「异化（Entfremdung）指……」</td></tr>
+          <tr><td><b>译注系统</b></td><td>区分三类：① 译名说明 ② 文化背景补充 ③ 原文歧义提示。用脚注不用尾注</td></tr>
+          <tr><td><b>引文规范</b></td><td>直接引语归化改写须标注「译文有调整」；页码格式 (pp. 12–14) 页码用半角连字符</td></tr>
+          <tr><td><b>保留原文词</b></td><td>无法准确对应的词保留原文并加方括号，如「[das Man]」，不做强行翻译</td></tr>
+          <tr><td><b>列表与层级</b></td><td>原文分级标题保留层级关系；原文无序列表改为中文习惯的「一、二、三」或「1. 2. 3.」</td></tr>
+          <tr><td><b>删机器腔</b></td><td>删除填充语「值得注意的是」「综上所述」「在当今社会」；避免「不仅…而且…」句式堆叠</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>常见问题</h3>
+    <div class="body">
+      <p style="font-size:13px;color:var(--tx2);line-height:1.9">
+        <b>Q：校对一篇要多久、花多少钱？</b><br>
+        A：三千字文章通常 40–90 秒，费用几分钱。开启「争议点延伸查证」会慢一些，因为模型需要展开分析。<br><br>
+        <b>Q：我的稿件和数据存在哪？会泄露吗？</b><br>
+        A：全部存在<b>你自己电脑的浏览器</b>里，不上传任何服务器。工具唯一的对外请求，是把你提交校对的文字发给你在「设置」里选定的模型（如 DeepSeek）——这是 AI 干活的必要通道。不联网它就不工作，但也不会偷传别的。<br><br>
+        <b>Q：换电脑了，术语库还在吗？</b><br>
+        A：不在——数据跟着浏览器走。换电脑前，去「设置 → 数据管理 → 导出全部数据（备份）」，得到一个文件存好；新电脑上点「导入备份」即可原样恢复。<br><br>
+        <b>Q：怎么和同事共享术语库？</b><br>
+        A：目前用「文件互传」：在「术语库」页点「导出 JSON」，把文件发微信/邮件给对方，对方在自己电脑点「导入 JSON/CSV」即可。云端共享（一处更新、处处同步）已列入计划，见下方「未来方向」。<br><br>
+        <b>Q：工具会篡改我的原意吗？</b><br>
+        A：勾上「存疑处向我提问」，模型遇到拿不准的地方会提问而不是擅改。另外建议始终保留自己的最终审读——AI 校对是提效工具，不是责任转移。<br><br>
+        <b>Q：能直接发布到公众号吗？</b><br>
+        A：公众号没有开放写入接口，任何工具都无法一键发布。本工具的「转公众号格式」会把结果转成富文本，复制后粘贴进编辑器即可，标题、加粗、引用基本保留。<br><br>
+        <b>Q：可以一次校对整本书吗？</b><br>
+        A：建议按章节分批，单次不超过 8000 字——超长文本模型容易遗漏中段细节。用「上传文档」功能，整本书按章切好，逐章勾选着校对即可。<br><br>
+        <b>Q：用了 AI 需要标注吗？</b><br>
+        A：各平台与出版方规定不同。学术发表场景建议在方法或致谢中说明使用了辅助工具；公众号无硬性要求，但译文署名人仍然是你。
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>遇到问题？右下角「📩 反馈」按钮，30 秒提交 <span class="hint">v4.26.0 起 · 提交后在「项目进度」页可查</span></h3>
+    <div class="body">
+      <table>
+        <thead><tr><th style="width:150px">你要填什么</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>问题描述</b>（必填）</td><td>一句话说清哪里不对劲，比如「上传 PDF 后提示解析失败」</td></tr>
+          <tr><td><b>出现时间</b>（必填）</td><td>默认已帮你填好当前时间，需要的话改一下</td></tr>
+          <tr><td><b>出现的功能</b>（选）</td><td>下拉选择当时在用的功能：文档解析 / OCR / 校对运行 / 术语库 / 导出 / 界面 / 其它</td></tr>
+          <tr><td><b>出现的地点</b>（必填）</td><td>当时在哪一步操作，比如「校对页 → 上传文档 → 选 PDF」</td></tr>
+          <tr><td><b>联系方式</b>（选）</td><td>留了才方便回复你；不留也能提交</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:14px">
+        <b>你不用懂技术：</b>提交时会自动附带版本号、当前所在页、最近的程序报错——这些正是定位问题最需要的线索。提交成功会给一个编号；若当时网络不通，会先存在本地，到「项目进度」页点一下「重发」即可。所有反馈按编号记录在服务器日志里，「项目进度」页底部的「反馈记录」卡片能看到每一条。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>未来方向（我们接下来想做的）</h3>
+    <div class="body">
+      <table>
+        <thead><tr><th style="width:90px">阶段</th><th>目标</th><th style="width:150px">状态</th></tr></thead>
+        <tbody>
+          <tr><td><b>现在</b></td><td>本地单文件工具：双击即用、零安装，数据全部存在自己电脑</td><td>✅ 已经做到</td></tr>
+          <tr><td><b>近期</b></td><td>术语库云端共享：团队一处更新、处处拉取（免费，无需服务器）</td><td>✅ 轻量版已实现（术语库页「团队云端同步」）</td></tr>
+          <tr><td><b>中期</b></td><td>在线版：一个网址打开就能用，手机电脑都行，无需保存文件</td><td>✅ 已上线（transproof.pages.dev，数据仍存本地浏览器）</td></tr>
+          <tr><td><b>中期</b></td><td>报错反馈：页面右下角「📩 反馈」一键提交，自动带版本/报错/路径，记录进服务器日志、项目进度页可查</td><td>✅ 已上线（v4.26.0）</td></tr>
+          <tr><td><b>中期</b></td><td>修订对照三栏逐句视图（原文｜原译｜修订）</td><td>✅ 已上线（v4.30.0，校对结果页「📊 三栏对照」）</td></tr>
+          <tr><td><b>中期</b></td><td>三段流水线（翻译→批评→精修）</td><td>✅ 已上线（v4.29.0；v4.34.0 修好卡死 + 线上报错自动上报）</td></tr>
+          <tr><td><b>远期</b></td><td>完整应用：多人协作、修订留痕、对接出版排版流程</td><td>规划中</td></tr>
+          <tr><td><b>近期</b></td><td><b>漏段提醒</b>：校对前自动比对原文与译文的段落，缺段当场标出（在你电脑本地完成，不花钱）</td><td>✅ 已上线（v4.31.0，工具组「🧩 段落对齐」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>术语权威分级</b>：词条分「待审 / 已批准」两种状态，校对只认已批准的译法；改动已批准译法需负责人再批一次</td><td>✅ 已上线（v4.32.0，专有译词库状态徽章 + 核查一键批准）</td></tr>
+          <tr><td><b>近期</b></td><td><b>数字与格式体检</b>：数字丢失 / 凭空多出 / 百分号丢失 / 整段漏否定，逐处标出位置与上下文（在你电脑本地完成，不花钱）</td><td>✅ 已上线（v4.33.0，工具组「🔢 数字体检」）</td></tr>
+           <tr><td><b>近期</b></td><td><b>体检中心 + 译文总评分</b>：四项体检收一处、逐项可勾 + 一键全检；本地算 0–100 分（S/A/B/C/D）拆成忠实度 / 流畅度，逐条列出扣分项（含未翻译残留、占位符保护）；另有按体裁调性给的风格简报</td><td>✅ 已上线（v4.36.0，工具组「🩺 体检中心」）</td></tr>
+           <tr><td><b>近期</b></td><td><b>标点·书名号 1:1 机械对账</b>：书名号《》/括号/引号/问号/叹号/破折号/省略号，原文 vs 译文逐个对账，悬空括号与漏标多标直接标出（在你电脑本地完成，不花钱）</td><td>✅ 已上线（v4.37.0，工具组「🔣 标点对账」）</td></tr>
+           <tr><td><b>近期</b></td><td><b>翻译腔体检</b>：句末落「的」、「的」密度、「作为…的东西/被…所」黑名单套话——揪出 AI 改完还留的翻译味儿（在你电脑本地完成，不花钱）</td><td>✅ 已上线（v4.38.0，体检中心「📝 翻译腔体检」）</td></tr>
+           <tr><td><b>近期</b></td><td><b>专名核验 + 术语表回填</b>：翻译后自动抽专名入词库 → 面板里 AI 核验 + 真 URL 回填 + 批准 → 一键统一全文译法</td><td>✅ 已上线（v4.39.0，专有译词库「🔎 专名核验」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>左下角版本显示</b>：页面最底端左下角常驻显示当前版本号，网页端 / 插件端同款</td><td>✅ 已上线（v4.39.1）</td></tr>
+          <tr><td><b>近期</b></td><td><b>交付质检报告</b>：一键汇总错误分类 / 已修进度 / 质量评分 / 检查覆盖成可复制报告，页脚带 TransProof 名片</td><td>✅ 已上线（v4.40.0，结果区「📋 交付报告」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>专名百科自动查证</b>：专名核验点「🔎 查维基」直连中英维基百科，带回译名 + 简介 + 真 URL，批准后背景简介进提示词</td><td>✅ 已上线（v4.41.0，专名核验卡片「🔎 查维基」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>一边译一边填术语表</b>：翻译页勾「收集新词到译词库」，译完自动把新术语+建议译名收进词库（默认待审、自动去重）</td><td>✅ 已上线（v4.42.0，翻译页「翻译时收集新词到译词库」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>导出引用头</b>：复制结果时最前面可选加「中译标题 / 作者+机构 / APA 出处 / 版权声明」四样，元数据 AI 抽 + 手填</td><td>✅ 已上线（v4.43.0，复制结果弹窗「📎 引用头」）</td></tr>
+          <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
+        </tbody>
+      </table>
+      <div class="alert i" style="margin-top:14px">
+        <b>为什么按这个顺序？</b>每一步都让上一步更省事，但不推翻已有习惯——你的术语库、历史记录、偏好设置都会原样带过去。
+      </div>
+      <div class="alert i" style="margin-top:14px">
+        <b>致谢：</b>这套演进思路参考了开源制度设计「伊里因科夫翻译工作流」（<code>hoshF/ilyenkov-translation-workflow</code>，CC BY 4.0，参考其 Agent 执行规范 §5–§7、§10，行810 标注）——它把「AI 翻得快，但凭什么说它是对的」变成一套可执行的角色分工与检查流程。谢谢这个项目贡献的想法，我们取其精华、按自己的节奏落地。
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+</main>
+
+<!-- ═══════════ 弹层 ═══════════ -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h2><span id="mTitle"></span><button id="mClose">×</button></h2>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════ 外部配置层：朋友改这里，主文件不用碰 ═══════════ -->
+<!-- config.js 不存在或写错时自动忽略，工具仍用内置默认值正常运行 -->
+<script src="config.js"></script>
+
+<!-- 反馈入口（v4.26.0：常驻右下角，覆盖全部功能区） -->
+<button class="btn pri sm fb-fab" id="btn-fb" title="提交报错 / 建议（v4.26.0）">📩 反馈</button>
+<script src="js/01-core.js"></script>
+<script src="js/02-prompts-reverse.js"></script>
+<script src="js/03-translate.js"></script>
+<script src="js/04-settings-data.js"></script>
+<script src="js/05-files-docx.js"></script>
+<script src="js/06-track-scan.js"></script>
+<script src="js/07-run-features.js"></script>
+<script src="js/08-render-audit.js"></script>
+<script src="js/09-gloss.js"></script>
+<script src="js/10-app-init.js"></script>
+<script src="js/11-feedback.js"></script>
+<script src="js/12-editbox.js"></script>
+<script src="js/13-pipeline.js"></script>
+<script src="js/14-noun-verify.js"></script>
+<script src="js/15-delivery-report.js"></script>
+<script src="js/16-wiki-verify.js"></script>
+<script src="js/17-cite-header.js"></script>
+</body>
+</html>

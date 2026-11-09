@@ -1,0 +1,9 @@
+# 译校助手 TransProof 薄壳插件：一条 Host 行。
+# 契约照 coldgust/dsh-translation-assistant 的 cordis.patch.yml（非编造）。
+- insert:
+    - id: transproof-dsh-plugin
+      name: 'transproof-dsh-plugin'
+      config:
+        # TransProof 静态文件根（index.html + js/）。本地体检纯 JS 不联网，不配模型。
+        # 指向插件内置的 app/ 打包目录（../app 相对 host/ 解析）；resolveAppRoot 仍有兜底，改错也能自愈。
+        appRoot: '../app'
