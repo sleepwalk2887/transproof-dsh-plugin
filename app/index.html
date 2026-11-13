@@ -536,6 +536,27 @@ header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-in
 .fb-pend{border:1px solid var(--warn);color:var(--warn);font-size:11px;padding:0 4px;border-radius:0}
 .fb-d{font-size:13px;line-height:1.5;word-break:break-all}
 .fb-sub{font-size:12px;color:var(--tx3)}
+/* ---------- 移动端自适应（v4.47.0） ---------- */
+@media (max-width:768px){
+  .page{padding:12px}
+  .card .body{padding:12px}
+  .out{padding:14px}
+  .wrap{max-width:none}
+  nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-top:8px;padding-bottom:2px}
+  nav::-webkit-scrollbar{display:none}
+  nav button{flex-shrink:0;padding:8px 14px;font-size:13px}
+  nav button.on::after{left:10px;right:10px}
+  input,textarea,select{font-size:16px}
+  .btn{padding:10px 14px}
+  .btn.sm{padding:8px 12px;font-size:12.5px}
+  .modal{padding:10px}
+  .modal .box{padding:16px;max-height:92vh}
+  .fb-fab{right:12px;bottom:calc(12px + env(safe-area-inset-bottom))}
+  .ver-tag{left:10px;bottom:calc(8px + env(safe-area-inset-bottom))}
+  table.g-table{font-size:12px}
+  table.g-table td,table.g-table th{padding:8px 6px}
+}
+
 </style>
 </head>
 <body>
@@ -906,6 +927,19 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
       <textarea id="prefs" rows="5" placeholder="保留原文页脚注释的编号顺序；人名首次出现附原文；不使用「值得注意的是」「此外」「在当今社会」等填充语；引文一律加引号并注明出处"></textarea>
       <div style="margin-top:10px"><button class="btn pri sm" id="btn-pref-save">保存偏好</button>
       <span style="font-size:12px;color:var(--tx3);margin-left:10px" id="prefSaved"></span></div>
+    </div>
+  </div>
+
+  <div class="card" id="sp-card">
+    <h3>规范包 <span class="hint">外部「规范说明」文字包，可选启用，冲突以内置规则为准</span></h3>
+    <div class="body">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn pri sm" id="sp-import-text">📋 粘贴文本</button>
+        <button class="btn pri sm" id="sp-import-url">🔗 链接导入</button>
+        <button class="btn pri sm" id="sp-import-file">📂 选本地文件</button>
+      </div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">导入的是<b>纯文字说明</b>（如 skill 的 SKILL.md），只作为附加规范层注入提示词，<b>不执行任何脚本</b>。单包 ≤50KB、总数 ≤10。</div>
+      <div id="sp-list"></div>
     </div>
   </div>
 </div>
@@ -1655,6 +1689,12 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
            <tr><td><b>🔎 专名百科自动查证（v4.41 新）</b></td><td>专有译词库「专名核验」卡片每行新增「🔎 查维基」：按外文名查中英维基百科，带回通行译名 + 简介 + 真 URL，人工确认后入词库；已批准专名的背景简介会自动带进翻译/校对提示词。查不到或被拦时给友好提示（开代理 / 换渠道）</td></tr>
           <tr><td><b>🌱 一边译一边填术语表（v4.42 新）</b></td><td>翻译页再勾「翻译时收集新词到译词库」，译完自动把新术语、专业词、反复出现的关键词连同建议译名收进译词库（默认待审核，与「抽专名」互不干扰、自动去重）——术语库不用手敲，越翻越全</td></tr>
           <tr><td><b>📎 导出引用头（v4.43 新）</b></td><td>复制结果弹窗顶部新增「📎 引用头」：可选粘贴 ①中译标题 ②作者（中译名）+ 研究机构 ③APA 格式出处 ④版权声明（CC BY-NC-SA 4.0，仅供个人学习），四样都可勾选；元数据点「🤖 自动提取」从原文抽、查不到的手填，勾选后拼在译文最前面一起复制</td></tr>
+          <tr><td><b>📦 规范包（v4.44 新）</b></td><td>设置页新增「📦 规范包」卡片：把外部规范说明（粘贴文本 / GitHub 链接 / 本地文件）导成可开关的文字包，预览后启用，每次请求自动附带、冲突以内置规则为准，不执行任何第三方脚本</td></tr>
+          <tr><td><b>🔁 错误回流（v4.45 新）</b></td><td>批注卡每条新增三个按钮：「📌术语」把改法存进词库并批准锁定；「🚫禁用」禁止再犯该译法；「✍文风」把理由存进文风偏好——同样的错修一次，以后不再犯</td></tr>
+<tr><td><b>📚 EPUB 整书翻译（v4.46 新）</b></td><td>上传 .epub 电子书，自动解析章节、整本翻译、原样导出同格式 .epub（保留图片与版式），两档位可选：⚡快速档（翻一遍+自动核验+疑难标注）／🎯质量档（三段流水线精修+人工确认+交付报告）</td></tr>
+        <tr><td><b>📱 手机端下载修复（v4.46.1 新）</b></td><td>修复 iOS / 安卓浏览器里「下载文档」按钮点击无反应的问题（下载链接未挂载到页面，移动端不触发下载）</td></tr>
+        <tr><td><b>📱 移动端自适应（v4.47 新）</b></td><td>手机网页端整体自适应：页签横向滑动、按钮与输入框触控尺寸加大、弹层贴屏、底部按钮避开安全区</td></tr>
+        <tr><td><b>🔔 错误反馈速达（v4.48 新）</b></td><td>JS 报错自动上报升级：24 小时签名去重 + 每小时限流 10 条；创作者配 NOTIFY_URL 后，每条反馈/报错实时推送</td></tr>
         </tbody>
       </table>
       <div class="alert i" style="margin-top:12px">
@@ -1797,6 +1837,12 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
           <tr><td><b>近期</b></td><td><b>专名百科自动查证</b>：专名核验点「🔎 查维基」直连中英维基百科，带回译名 + 简介 + 真 URL，批准后背景简介进提示词</td><td>✅ 已上线（v4.41.0，专名核验卡片「🔎 查维基」）</td></tr>
           <tr><td><b>近期</b></td><td><b>一边译一边填术语表</b>：翻译页勾「收集新词到译词库」，译完自动把新术语+建议译名收进词库（默认待审、自动去重）</td><td>✅ 已上线（v4.42.0，翻译页「翻译时收集新词到译词库」）</td></tr>
           <tr><td><b>近期</b></td><td><b>导出引用头</b>：复制结果时最前面可选加「中译标题 / 作者+机构 / APA 出处 / 版权声明」四样，元数据 AI 抽 + 手填</td><td>✅ 已上线（v4.43.0，复制结果弹窗「📎 引用头」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>规范包</b>：外部规范说明（粘贴 / GitHub / 本地文件）导成可开关文字包，预览后启用、冲突以内置为准</td><td>✅ 已上线（v4.44.0，设置页「📦 规范包」）</td></tr>
+          <tr><td><b>近期</b></td><td><b>错误回流</b>：批注卡一键「升为术语 / 禁用 / 文风规则」，同样的错修一次以后不再犯</td><td>✅ 已上线（v4.45.0，批注卡三按钮）</td></tr>
+<tr><td><b>近期</b></td><td><b>EPUB 整书翻译</b>：上传电子书、解析章节、整本翻译、原样导出 .epub，快速/质量两档</td><td>✅ 已上线（v4.46.0，翻译工作台）</td></tr>
+          <tr><td><b>近期</b></td><td><b>手机端下载修复</b>：校对 / 翻译后的文档下载按钮在移动端恢复可用</td><td>✅ 已上线（v4.46.1）</td></tr>
+          <tr><td><b>近期</b></td><td><b>移动端自适应</b>：手机网页端页签横滑、触控优化、弹层贴屏</td><td>✅ 已上线（v4.47.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>错误反馈速达</b>：报错自动上报去重限流 + 创作者实时推送</td><td>✅ 已上线（v4.48.0）</td></tr>
           <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
         </tbody>
       </table>
@@ -1844,5 +1890,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
 <script src="js/15-delivery-report.js"></script>
 <script src="js/16-wiki-verify.js"></script>
 <script src="js/17-cite-header.js"></script>
+<script src="js/18-specpack.js"></script>
+<script src="js/19-error-feedback.js"></script>
+<script src="js/20-epub.js"></script>
 </body>
 </html>

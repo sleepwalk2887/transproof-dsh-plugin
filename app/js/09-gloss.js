@@ -701,9 +701,11 @@ async function glossExport(fmt, list){
 function csvEsc(s){ s = String(s==null?'':s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
 function dlBlob(name, blob){
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  a.href = URL.createObjectURL(blob); a.download = name; a.rel = 'noopener'; a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
   // 60 秒后再回收：过早 revoke 在慢速下载 / 内嵌浏览器环境会把文件截断成损坏包
-  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  setTimeout(() => { if(a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(a.href); }, 60000);
 }
 
 // ── 同步到术语库（核心联动）──

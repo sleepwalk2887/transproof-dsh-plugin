@@ -306,8 +306,10 @@ function today(){ return new Date().toISOString().slice(0,10); }
 function dl(name, content, type){
   const b = new Blob([content], { type: type + ';charset=utf-8' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  a.href = URL.createObjectURL(b); a.download = name; a.rel = 'noopener'; a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { if(a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(a.href); }, 3000);
 }
 // 全部持久化 key（v2 备份/恢复/清除/统计的单一来源）
 const ALL_KEYS = ['tp.cfg','tp.terms','tp.prefs','tp.history','tp.memory','tp.project','tp.prompts','tp.gloss','tp.task','tp.stage','tp.theme','tp.accent','tp.splash','tp.fb.log'];

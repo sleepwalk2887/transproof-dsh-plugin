@@ -128,6 +128,7 @@ async function parseFile(file, side, onProgress){
   const hook = TP_FILE_HOOKS[side === 'src' ? 'parseSrc' : 'parseDst'];
   if(hook){ return await hook(file, ext, onProgress); }
   if(ext === 'docx') return await parseDocx(file, onProgress);
+  if(ext === 'epub') return await parseEpub(file, onProgress);
   if(ext === 'pdf')  return await parsePdf(file, onProgress);
   if(/^(png|jpe?g|webp|gif|bmp|tiff?)$/.test(ext)) return await parseImage(file, onProgress);
   if(/^(txt|md|markdown)$/.test(ext)) {
@@ -717,12 +718,21 @@ async function exportOriginalDocx(){
   if(!f){ toast('请先在原文侧上传文件', 'e'); return; }
   if(!f.fullText || !f.fullText.trim()){ toast('未解析到任何文字，无法导出', 'e'); return; }
   try{
-    const blob = await buildDocxFromChapters(f.chapters);
+    let blob, extName, tip;
+    if(f.kind === 'epub' && f._epub){
+      blob = await buildEpubFromChapters(f._epub, f.chapters);
+      extName = '.epub';
+      tip = '（保留图片与版式）';
+    } else {
+      blob = await buildDocxFromChapters(f.chapters);
+      extName = '.docx';
+      tip = '（文字版，图片与复杂版式未保留）';
+    }
     const base = (f.fileName || '原文').replace(/\.[^.]+$/, '');
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = base + '.docx'; a.click();
+    a.href = URL.createObjectURL(blob); a.download = base + extName; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-    toast('已导出：' + base + '.docx（文字版，图片与复杂版式未保留）');
+    toast('已导出：' + base + extName + tip);
   }catch(e){ toast('导出失败：' + e.message, 'e'); }
 }
 

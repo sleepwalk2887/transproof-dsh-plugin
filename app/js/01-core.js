@@ -1,5 +1,5 @@
 /* ═══════════ 配置与状态 ═══════════ */
-const APP_VERSION = '4.43.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
+const APP_VERSION = '4.48.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
 /* 左下角版本显示（v4.39.1） */
 (function(){
   function addVerTag(){

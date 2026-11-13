@@ -1544,7 +1544,17 @@ function auditParseLi(li){
   const xm = body.match(/改为\s*[「"'](.+?)[」"']/);
   const frag = ((fm && fm[1]) || '').trim();
   const fix = ((xm && xm[1]) || '').trim();
-  return { type: type, frag: frag, fix: fix, fp: type + '|' + frag + '|' + fix };
+  const fi = body.indexOf(fix);
+  let reason = '';
+  if(fix && fi >= 0){
+    reason = body.slice(fi + fix.length);
+    const c0 = reason.charAt(0);
+    if(c0 === '」' || c0 === '"' || c0 === "'") reason = reason.slice(1);
+    const c1 = reason.charAt(0);
+    if(c1 === '：' || c1 === ':') reason = reason.slice(1);
+    reason = reason.trim();
+  }
+  return { type: type, frag: frag, fix: fix, reason: reason, fp: type + '|' + frag + '|' + fix };
 }
 function renderAuditControls(){
   const out = $('#out'); if(!out) return;
@@ -1565,6 +1575,23 @@ function renderAuditControls(){
     btn.classList.toggle('on', done);
     li.classList.toggle('ef-done', done);
     btn.onclick = (ev) => { ev.stopPropagation(); toggleAuditFix(a.fp, li, btn); };
+    // T-017：错误回流三按钮（升为术语 / 禁用 / 文风规则）
+    let promo = li.querySelector('.ef-promote');
+    if(!promo){
+      promo = document.createElement('span');
+      promo.className = 'ef-promote';
+      li.appendChild(promo);
+    }
+    promo.innerHTML = '';
+    function mkPromo(cls, label, title, fn){
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ef-p ' + cls; b.title = title; b.textContent = label;
+      b.onclick = function(ev){ ev.stopPropagation(); if(typeof fn === 'function') fn(auditParseLi(li)); };
+      promo.appendChild(b);
+    }
+    if(typeof efPromoteTerm === 'function') mkPromo('ef-term', '📌术语', '把这个译法存进词库并批准（锁定一致）', efPromoteTerm);
+    if(typeof efPromoteBan === 'function') mkPromo('ef-ban', '🚫禁用', '禁止再使用这个译法（下次请求生效）', efPromoteBan);
+    if(typeof efPromoteStyle === 'function') mkPromo('ef-style', '✍文风', '把理由存进文风偏好（下次请求自动附带）', efPromoteStyle);
   });
   updateFixProgress();
 }

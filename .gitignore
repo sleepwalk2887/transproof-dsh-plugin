@@ -1,1 +1,4 @@
-﻿*.tgz
+
+.wrangler/
+node_modules/
+*.tgz

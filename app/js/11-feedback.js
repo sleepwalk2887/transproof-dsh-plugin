@@ -10,7 +10,9 @@ window.addEventListener('error', function(e){
     FB_ERRS.push((new Date()).toTimeString().slice(0,8) + ' ' + msg);
     if(FB_ERRS.length > 20) FB_ERRS.shift();
   }catch(_){}
-  fbAutoReport('JS 报错', msg + (e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + (e.lineno||0) : ''));
+  var _sl = '';
+  try{ if(e && e.error && e.error.stack){ _sl = String(e.error.stack).split(String.fromCharCode(10))[1] || ''; } }catch(_){}
+  fbAutoReport('JS 报错', msg + (e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + (e.lineno||0) : ''), _sl);
 });
 window.addEventListener('unhandledrejection', function(e){   /* v4.34.0：Promise 挂了也要记+报 */
   const r = e && e.reason;
@@ -19,31 +21,51 @@ window.addEventListener('unhandledrejection', function(e){   /* v4.34.0：Promis
     FB_ERRS.push((new Date()).toTimeString().slice(0,8) + ' Promise: ' + msg);
     if(FB_ERRS.length > 20) FB_ERRS.shift();
   }catch(_){}
-  fbAutoReport('Promise 挂了', msg);
+  var _sl2 = '';
+  try{ if(r && r.stack){ _sl2 = String(r.stack).split(String.fromCharCode(10))[1] || ''; } }catch(_){}
+  fbAutoReport('Promise 挂了', msg, _sl2);
 });
 
 /* ── v4.34.0 线上报错自动上报：有报错 → 立刻进反馈通道（线上 https 才发；本地无接口静默）→
    开发端看门狗每分钟巡检 /api/feedback/list，发现新条目就在 DSH 聊天框提醒 ── */
 let FB_AUTO_T = 0, FB_AUTO_SIG = '';
+const FB_AUTO_SIG_KEY = 'tp.fb.autosig';
+const FB_AUTO_TS_KEY = 'tp.fb.autots';
+function fbAutoSigMap(){ const a = load(FB_AUTO_SIG_KEY, {}); return (a && typeof a === 'object') ? a : {}; }
+function fbAutoSigSave(m){ save(FB_AUTO_SIG_KEY, m); }
+function fbAutoTsList(){ const a = load(FB_AUTO_TS_KEY, []); return Array.isArray(a) ? a : []; }
+function fbAutoTsSave(a){ save(FB_AUTO_TS_KEY, a.slice(-20)); }
+/* 去重 + 限流闸门（纯逻辑，可单独测）：同一签名 24h 内只放行 1 次，每小时最多 10 条 */
+function fbAutoGate(sig){
+  const now = Date.now();
+  if(sig === FB_AUTO_SIG) return false;                      /* 内存级去重 */
+  const sm = fbAutoSigMap();
+  if(sm[sig] && (now - sm[sig] < 86400000)) return false;    /* 24 小时签名去重 */
+  const tl = fbAutoTsList().filter(function(t){ return now - t < 3600000; });
+  if(tl.length >= 10) return false;                          /* 每小时限流 10 条 */
+  FB_AUTO_SIG = sig;
+  sm[sig] = now; fbAutoSigSave(sm);
+  tl.push(now); fbAutoTsSave(tl);
+  return true;
+}
 /* 反馈接口地址（方案A）：真网页版（pages.dev，https）用同源 /api/feedback/*；插件/本地等
    其它环境一律发到线上接口 https://transproof.pages.dev —— 这样朋友在插件里提交的反馈
    也进同一份服务器日志。跨域已由反馈 Worker 的 Access-Control-Allow-Origin: * 放行。 */
 const FB_LIVE = 'https://transproof.pages.dev';
 const FB_ON_WEB = (location.protocol === 'https:' && location.hostname.endsWith('pages.dev'));
 const FB_BASE = FB_ON_WEB ? '' : FB_LIVE;
-function fbAutoReport(kind, msg){
+function fbAutoReport(kind, msg, stackLine){
   try{
     if(location.protocol !== 'https:') return;   /* 本地没有 /api 通道，不发 */
     const text = String(msg || '').trim();
     if(!text) return;
-    const sig = kind + '|' + text.slice(0, 120);
-    if(sig === FB_AUTO_SIG) return;              /* 同一条报错不重复发 */
-    const now = Date.now();
-    if(now - FB_AUTO_T < 30000) return;          /* 30 秒节流，防刷屏 */
-    FB_AUTO_T = now; FB_AUTO_SIG = sig;
+    const sl = String(stackLine || '').trim().slice(0, 160);
+    const sig = kind + '|' + text.slice(0, 160) + (sl ? (' @ ' + sl) : '');
+    if(!fbAutoGate(sig)) return;                  /* 去重 + 限流（内存 + localStorage） */
     const d = new Date(), p2 = n => String(n).padStart(2, '0');
     const localTime = d.getFullYear() + '-' + p2(d.getMonth()+1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes());
     fbPost({
+      type: 'auto',
       desc: '🤖 自动报错（' + kind + '）：' + text.slice(0, 400),
       time: localTime, func: '其他',
       where: '自动捕获 · ' + location.pathname + ' · ' + fbPageName(),
