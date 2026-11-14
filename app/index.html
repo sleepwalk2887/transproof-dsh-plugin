@@ -754,6 +754,7 @@ header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-in
     <div class="spacer"></div>
     <span class="tb-g"><span class="tb-cap">📤 输出</span>
       <button class="btn gray sm" id="btn-md">导出 Markdown</button>
+      <button class="btn gray sm" id="btn-snap" title="每次复制/导出都自动留一条快照，可回看历史、一键回填">📸 快照</button>
       <button class="btn gray sm" id="btn-copy">复制结果</button>
       <button class="btn gray sm" id="btn-wx">转公众号格式</button>
     </span>
@@ -1133,7 +1134,7 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
       </div>
 
       <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-        <label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-term" style="width:auto"> 翻译时收集新词到译词库</label><label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-noun" checked style="width:auto"> 翻译后抽专名 + 建议译名入词库</label><button class="btn pri" id="ts-btn-run" style="padding:9px 22px">▶ 开始翻译</button>
+        <label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-term" style="width:auto"> 翻译时收集新词到译词库</label><label class="chk" style="display:inline-flex;align-items:center;gap:6px;margin-right:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="ts-c-noun" checked style="width:auto"> 翻译后抽专名 + 建议译名入词库</label><button class="btn pri" id="ts-btn-run" style="padding:9px 22px">▶ 开始翻译</button><button class="btn pri" id="ts-btn-book" style="padding:9px 22px" disabled title="上传 EPUB 后可用">📚 整本翻译</button>
         <button class="btn" id="btn-pipeline" title="三段流水线：翻译 → 批评 → 精修，一次操作自动串三次调用，每段产物你过目再进下一段（v4.29.0；v4.34.0 修好卡死：重试不越位、关弹窗能重开、中断立即生效）">⚙ 三段流水线</button>
         <button class="btn gray sm" id="ts-btn-stop" disabled>■ 中断</button>
         <span id="ts-runStat" style="font-size:12px;color:var(--tx3);align-self:center"></span>
@@ -1695,6 +1696,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
         <tr><td><b>📱 手机端下载修复（v4.46.1 新）</b></td><td>修复 iOS / 安卓浏览器里「下载文档」按钮点击无反应的问题（下载链接未挂载到页面，移动端不触发下载）</td></tr>
         <tr><td><b>📱 移动端自适应（v4.47 新）</b></td><td>手机网页端整体自适应：页签横向滑动、按钮与输入框触控尺寸加大、弹层贴屏、底部按钮避开安全区</td></tr>
         <tr><td><b>🔔 错误反馈速达（v4.48 新）</b></td><td>JS 报错自动上报升级：24 小时签名去重 + 每小时限流 10 条；创作者配 NOTIFY_URL 后，每条反馈/报错实时推送</td></tr>
+        <tr><td><b>📚 整本 EPUB 翻译（v4.49 新）</b></td><td>上传 .epub 一键逐章翻译：⚡快速档 / 🎯质量档（三段流水线）、进度条、断点续传、⚠️ 疑难句标注</td></tr>
+        <tr><td><b>📸 定稿快照留痕（v4.49 新）</b></td><td>每次复制结果 / 导出 Markdown / 下载文档，自动写一条不可变快照（编号+时间+全文），可随时查看历史、一键回填到结果区</td></tr>
         </tbody>
       </table>
       <div class="alert i" style="margin-top:12px">
@@ -1843,6 +1846,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
           <tr><td><b>近期</b></td><td><b>手机端下载修复</b>：校对 / 翻译后的文档下载按钮在移动端恢复可用</td><td>✅ 已上线（v4.46.1）</td></tr>
           <tr><td><b>近期</b></td><td><b>移动端自适应</b>：手机网页端页签横滑、触控优化、弹层贴屏</td><td>✅ 已上线（v4.47.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>错误反馈速达</b>：报错自动上报去重限流 + 创作者实时推送</td><td>✅ 已上线（v4.48.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>整本 EPUB 翻译</b>：一键逐章翻译，快速/质量两档，进度 + 断点续传 + 疑难标注</td><td>✅ 已上线（v4.49.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>定稿快照留痕</b>：复制/导出自动留快照，可回看历史、一键回填</td><td>✅ 已上线（v4.49.0）</td></tr>
           <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
         </tbody>
       </table>
@@ -1893,5 +1898,7 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
 <script src="js/18-specpack.js"></script>
 <script src="js/19-error-feedback.js"></script>
 <script src="js/20-epub.js"></script>
+<script src="js/21-book-run.js"></script>
+<script src="js/22-snapshot.js"></script>
 </body>
 </html>

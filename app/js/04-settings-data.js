@@ -312,7 +312,7 @@ function dl(name, content, type){
   setTimeout(() => { if(a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(a.href); }, 3000);
 }
 // 全部持久化 key（v2 备份/恢复/清除/统计的单一来源）
-const ALL_KEYS = ['tp.cfg','tp.terms','tp.prefs','tp.history','tp.memory','tp.project','tp.prompts','tp.gloss','tp.task','tp.stage','tp.theme','tp.accent','tp.splash','tp.fb.log'];
+const ALL_KEYS = ['tp.cfg','tp.terms','tp.prefs','tp.history','tp.memory','tp.project','tp.prompts','tp.gloss','tp.task','tp.stage','tp.theme','tp.accent','tp.splash','tp.fb.log','tp.snapshot'];
 $('#btn-backup').onclick = () => {
   // v2：完整备份所有本地数据（12 个 key），用于原封不动迁移到其他设备/平台
   const data = {};

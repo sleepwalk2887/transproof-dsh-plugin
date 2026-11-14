@@ -1,6 +1,6 @@
 {
   "name": "transproof-dsh-plugin",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "译校助手 TransProof 的 DeepSeek Harness 插件薄壳原型：把纯前端网页包进 DSH 页面入口 + 暴露「跑本地体检」Agent 工具。本地体检保持纯 JS 不联网。",
   "license": "Apache-2.0",
   "type": "module",

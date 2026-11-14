@@ -72,6 +72,7 @@ function tsRenderSrcBar(){
       $('#ts-src').value = idx < 0 ? f.fullText : f.chapters[idx].text;
     };
   }
+  const _bb = $('#ts-btn-book'); if(_bb){ _bb.disabled = !(f.kind === 'epub' && f.chapters && f.chapters.length > 0); }
 }
 
 /* ── System prompt 构建 ── */
