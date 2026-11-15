@@ -765,6 +765,8 @@ header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-in
       <button class="btn gray sm" id="btn-diff" title="把批注整理成「原译 → 修订」对照表：红色删除线、绿色高亮，逐条可复制（不调 AI、不花 token）">📝 改动对照</button>
       <button class="btn gray sm" id="btn-audit-center" title="把本地体检收在一起：术语 / 专名 / 段落 / 数字 / 总评分 / 风格简报，逐项可开关、一键全检（v4.36.0，不调 AI、不花 token）">🩺 体检中心</button>
       <button class="btn gray sm" id="btn-report" title="把本次校对的检查覆盖、错误分类、已修进度、质量评分汇总成一张可复制的交付报告（纯本地、不花 token）">📋 交付报告</button>
+      <button class="btn gray sm" id="btn-ask" title="把疑难句、待定夺译法、待审术语、待核验专名四类存疑项聚合成一张清单，复制或下载发给作者（纯本地、不花 token）">📋 疑问清单</button>
+      <button class="btn gray sm" id="btn-score" title="把整篇修订译文逐句打分（红/黄/绿徽章）+ 短评，点「应用重写」单句精修并写回（手动触发，一次调用评分、一次调用重写一句，不自动烧 token）">🎯 逐句评分</button>
     </span>
     <span class="tb-sep"></span>
     <span class="tb-g"><span class="tb-cap">📥 文档</span>
@@ -1698,6 +1700,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
         <tr><td><b>🔔 错误反馈速达（v4.48 新）</b></td><td>JS 报错自动上报升级：24 小时签名去重 + 每小时限流 10 条；创作者配 NOTIFY_URL 后，每条反馈/报错实时推送</td></tr>
         <tr><td><b>📚 整本 EPUB 翻译（v4.49 新）</b></td><td>上传 .epub 一键逐章翻译：⚡快速档 / 🎯质量档（三段流水线）、进度条、断点续传、⚠️ 疑难句标注</td></tr>
         <tr><td><b>📸 定稿快照留痕（v4.49 新）</b></td><td>每次复制结果 / 导出 Markdown / 下载文档，自动写一条不可变快照（编号+时间+全文），可随时查看历史、一键回填到结果区</td></tr>
+        <tr><td><b>📋 疑问清单（v4.50 新）</b></td><td>把疑难句 / 待定夺译法 / 待审术语 / 待核验专名四类存疑项聚合成一张清单，一键复制或下载 .md 发给作者定夺（纯本地、不花 token）</td></tr>
+        <tr><td><b>🎯 逐句评分（v4.50 新）</b></td><td>整篇修订译文逐句打分（红 1-2 / 黄 3 / 绿 4-5 徽章）+ 短评，点「应用重写」单句精修并写回（手动触发，不自动烧 token）</td></tr>
         </tbody>
       </table>
       <div class="alert i" style="margin-top:12px">
@@ -1848,6 +1852,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
           <tr><td><b>近期</b></td><td><b>错误反馈速达</b>：报错自动上报去重限流 + 创作者实时推送</td><td>✅ 已上线（v4.48.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>整本 EPUB 翻译</b>：一键逐章翻译，快速/质量两档，进度 + 断点续传 + 疑难标注</td><td>✅ 已上线（v4.49.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>定稿快照留痕</b>：复制/导出自动留快照，可回看历史、一键回填</td><td>✅ 已上线（v4.49.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>疑问清单</b>：四类存疑项聚合导出 Markdown 发作者</td><td>✅ 已上线（v4.50.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>逐句评分</b>：逐句打分徽章 + 单句重写指令</td><td>✅ 已上线（v4.50.0）</td></tr>
           <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
         </tbody>
       </table>
@@ -1900,5 +1906,7 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
 <script src="js/20-epub.js"></script>
 <script src="js/21-book-run.js"></script>
 <script src="js/22-snapshot.js"></script>
+<script src="js/23-asklist.js"></script>
+<script src="js/24-sentence-score.js"></script>
 </body>
 </html>
