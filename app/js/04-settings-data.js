@@ -12,6 +12,10 @@ function fillCfg(){
   $('#temp').value = CFG.temp;
   $('#timeout').value = CFG.timeout;
   $('#webhook').value = CFG.webhook || '';
+  $('#draftBaseUrl').value = CFG.draftBaseUrl || '';
+  $('#draftModel').value = CFG.draftModel || '';
+  $('#auditBaseUrl').value = CFG.auditBaseUrl || '';
+  $('#auditModel').value = CFG.auditModel || '';
   $('#keyWarn').style.display = CFG.apiKey ? 'none' : 'block';
   updateDot();
 }
@@ -64,6 +68,26 @@ function renderProviderOptions(){
   sel.appendChild(oc);
 }
 renderProviderOptions();
+/* P2 双模型分工：初稿/审校下拉（首项 = 同主模型，不分工） */
+function renderSplitOptions(){
+  function fillSel(id){
+    var s = $(id); if(!s) return;
+    s.innerHTML = '';
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '同主模型（不分工）';
+    s.appendChild(o0);
+    var og = null, lastG = '';
+    for(var i = 0; i < PROVIDERS.length; i++){
+      var p = PROVIDERS[i];
+      if(p.g !== lastG){ og = document.createElement('optgroup'); og.label = p.g; s.appendChild(og); lastG = p.g; }
+      var o = document.createElement('option'); o.value = p.url + '|' + p.model + '|' + p.label; o.textContent = p.label;
+      og.appendChild(o);
+    }
+  }
+  fillSel('#draft-provider'); fillSel('#audit-provider');
+}
+renderSplitOptions();
+$('#draft-provider').onchange = e => { const v = e.target.value; if(!v) return; const a = v.split('|'); $('#draftBaseUrl').value = a[0]; $('#draftModel').value = a[1]; };
+$('#audit-provider').onchange = e => { const v = e.target.value; if(!v) return; const a = v.split('|'); $('#auditBaseUrl').value = a[0]; $('#auditModel').value = a[1]; };
 function updateDot(){
   const ok = CFG.apiKey && CFG.baseUrl && CFG.model;
   const dot = $('#apiDot'), txt = $('#apiTxt');
@@ -85,7 +109,11 @@ $('#btn-save').onclick = () => {
     maxInChars: +$('#maxInChars').value || 80000,
     temp: +$('#temp').value || 0.3,
     timeout: +$('#timeout').value || 180,
-    webhook: $('#webhook').value.trim()
+    webhook: $('#webhook').value.trim(),
+    draftBaseUrl: $('#draftBaseUrl').value.trim().replace(/\/+$/,''),
+    draftModel: $('#draftModel').value.trim(),
+    auditBaseUrl: $('#auditBaseUrl').value.trim().replace(/\/+$/,''),
+    auditModel: $('#auditModel').value.trim()
   };
   save(LS.cfg, CFG);
   toast('已保存', 'ok');

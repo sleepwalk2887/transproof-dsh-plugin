@@ -109,7 +109,7 @@
     var old = btn.textContent;
     btn.disabled = true; btn.textContent = '重写中…';
     try{
-      var r = await callModelSimple(REWRITE_SYS + (terms ? NL + '【术语】' + terms : ''), user, 800);
+      var r = await callModelSimple(REWRITE_SYS + (terms ? NL + '【术语】' + terms : ''), user, 800, undefined, auditOv());
       var nv = String(r.text || '').trim();
       nv = nv.replace(/^["'\u201c]/,'').replace(/["'\u201d]$/,'').trim();
       if(!nv){ toast('重写结果为空，已保留原句', 'w'); return; }

@@ -23,7 +23,7 @@
     var sys = (typeof buildTransSystem === 'function') ? buildTransSystem() : '';
     if(extra){ sys = sys + NL + NL + extra; }
     var user = '【外文原文】' + NL + text;
-    var r = await callModel(sys, user, function(){}, 'trans');
+    var r = await callModel(sys, user, function(){}, 'trans', draftOv());
     return r && r.text ? r.text : '';
   }
 
@@ -33,14 +33,14 @@
     if(!pass1) return '';
     var criticSys = '你是资深翻译审校。请找出下面译文相对于原文的硬伤（漏译/误译/术语不一致/数字日期/语病/机器腔）。只输出 JSON 数组，每项 {i, type, frag, fix, reason}，reason 不超过 30 字；没有问题输出 []。';
     var criticUser = '【原文】' + NL + text + NL + NL + '【译文】' + NL + pass1;
-    var cr = await callModelSimple(criticSys, criticUser, 800);
+    var cr = await callModelSimple(criticSys, criticUser, 800, undefined, auditOv());
     var list = [];
     try { var parsed = JSON.parse(cr); if(Array.isArray(parsed)) list = parsed; } catch(e){}
     if(!list.length) return pass1;
     var fixItems = list.map(function(x){ return (x.i ? ('第' + x.i + '条') : '') + ' ' + (x.type || '') + '：' + (x.frag || '') + ' → ' + (x.fix || '') + '（' + (x.reason || '') + '）'; }).join(NL);
     var polishSys = '你是资深翻译润色。请根据下面的批评清单逐条修正译文，输出最终精修稿（只输出译文正文，不要解释）。';
     var polishUser = '【原文】' + NL + text + NL + NL + '【初译】' + NL + pass1 + NL + NL + '【批评清单】' + NL + fixItems;
-    var pr = await callModelSimple(polishSys, polishUser, 2000);
+    var pr = await callModelSimple(polishSys, polishUser, 2000, undefined, auditOv());
     return pr || pass1;
   }
 

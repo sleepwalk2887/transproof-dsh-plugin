@@ -166,18 +166,18 @@ function buildUser(){
 }
 
 /* ═══════════ 调用模型 ═══════════ */
-async function callModel(sys, user, onDelta, which){
+async function callModel(sys, user, onDelta, which, ov){
   const ctrl = new AbortController();
   // 按调用方归属各自的中断控制器，避免校对页/翻译页互相误中断
   if(which === 'trans'){ TS_ABORT = ctrl; } else { ABORT = ctrl; }
   const timer = setTimeout(() => ctrl.abort(), (CFG.timeout || 180) * 1000);
   try{
-    const r = await fetch(CFG.baseUrl.replace(/\/+$/,'') + '/chat/completions', {
+    const r = await fetch(((ov && ov.baseUrl) || CFG.baseUrl).replace(/\/+$/,'') + '/chat/completions', {
       method:'POST',
       signal: ctrl.signal,
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + CFG.apiKey },
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + ((ov && ov.apiKey) || CFG.apiKey) },
       body: JSON.stringify({
-        model: CFG.model,
+        model: (ov && ov.model) || CFG.model,
         messages: [{ role:'system', content: sys }, { role:'user', content: user }],
         temperature: CFG.temp,
         max_tokens: CFG.maxTok,
@@ -546,7 +546,7 @@ async function run(extOnly){
       lastFull = full;
       renderStream(full);
       updateProgress(full.length, total);
-    });
+    }, undefined, auditOv());
     hideProgress();
     LAST_OUT = text;
     out.style.whiteSpace = '';
@@ -683,7 +683,7 @@ async function continueRun(){
       cont = full;
       out.textContent = p.full + '\n' + full;
       updateProgress((p.full.length + full.length), (p.total + full.length) * 1.2);
-    });
+    }, undefined, auditOv());
     const full2 = p.full + '\n' + cont;
     hideProgress();
     LAST_OUT = full2;

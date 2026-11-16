@@ -126,7 +126,8 @@ async function plRun(n){
   else { sys = plSysRefine(); user = plUserRefine(); maxTok = 8000; }
 
   try{
-    const r = await callModelSimple(sys, user, maxTok, ctrl.signal);
+    const _ov = (n === 1) ? draftOv() : auditOv();
+    const r = await callModelSimple(sys, user, maxTok, ctrl.signal, _ov);
     if(PL.ctrl !== ctrl) return;   /* 弹窗被关/重开过：丢弃过期结果，别覆盖新一轮状态 */
     if(PL.cancel || ctrl.signal.aborted){ plStatus('⏹ 已中断第 ' + n + ' 段，点下方按钮可重试本段。'); nx.disabled = false; nx.textContent = '↻ 重试第 ' + n + ' 段'; return; }
     let t = String((r && r.text) || '').trim();

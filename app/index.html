@@ -767,6 +767,7 @@ header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-in
       <button class="btn gray sm" id="btn-report" title="把本次校对的检查覆盖、错误分类、已修进度、质量评分汇总成一张可复制的交付报告（纯本地、不花 token）">📋 交付报告</button>
       <button class="btn gray sm" id="btn-ask" title="把疑难句、待定夺译法、待审术语、待核验专名四类存疑项聚合成一张清单，复制或下载发给作者（纯本地、不花 token）">📋 疑问清单</button>
       <button class="btn gray sm" id="btn-score" title="把整篇修订译文逐句打分（红/黄/绿徽章）+ 短评，点「应用重写」单句精修并写回（手动触发，一次调用评分、一次调用重写一句，不自动烧 token）">🎯 逐句评分</button>
+      <button class="btn gray sm" id="btn-sample" title="从修订译文按 10% 抽样（5~30 句、少于 50 句全查），一次调用核查漏译/误译/术语不一致，给出错误率与交付建议（手动触发，不自动烧 token）">🎲 抽样质检</button>
     </span>
     <span class="tb-sep"></span>
     <span class="tb-g"><span class="tb-cap">📥 文档</span>
@@ -1385,6 +1386,24 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
         <div style="flex:0 0 190px"><label class="f">超时（秒）</label><input id="timeout" type="number" value="180" min="30" step="30"></div>
         <div style="flex:3;min-width:260px"><label class="f">结果推送 Webhook（可选 · 校对完成后 POST 结果到此地址）</label><input id="webhook" placeholder="https://你的服务器/接收接口"></div>
       </div>
+<div style="border-top:1px dashed var(--bd);margin:14px 0 0;padding-top:12px">
+        <label class="f" style="font-size:14px">⚖️ 双模型分工（可选 · 省 token）</label>
+        <div style="font-size:12px;color:var(--tx3);margin:2px 0 10px">留空 = 用上面主模型（不分工，行为不变）。初稿模型干翻译粗活，审校模型干批评/精修/校对细活；接口地址与模型名都能改（可跨服务商）。</div>
+        <div class="grid2">
+          <div>
+            <label class="f">初稿模型（翻译初稿）</label>
+            <select id="draft-provider" style="width:100%;margin-bottom:8px"></select>
+            <input id="draftBaseUrl" placeholder="接口地址（留空 = 同主接口）" style="margin-bottom:8px">
+            <input id="draftModel" placeholder="模型名（留空 = 同主模型）">
+          </div>
+          <div>
+            <label class="f">审校模型（批评/精修/校对）</label>
+            <select id="audit-provider" style="width:100%;margin-bottom:8px"></select>
+            <input id="auditBaseUrl" placeholder="接口地址（留空 = 同主接口）" style="margin-bottom:8px">
+            <input id="auditModel" placeholder="模型名（留空 = 同主模型）">
+          </div>
+        </div>
+      </div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--tx3)">
         <span>输出 tokens 预设：</span>
         <button class="btn sm gray" data-preset-tok="4000">短文 4K</button>
@@ -1702,6 +1721,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
         <tr><td><b>📸 定稿快照留痕（v4.49 新）</b></td><td>每次复制结果 / 导出 Markdown / 下载文档，自动写一条不可变快照（编号+时间+全文），可随时查看历史、一键回填到结果区</td></tr>
         <tr><td><b>📋 疑问清单（v4.50 新）</b></td><td>把疑难句 / 待定夺译法 / 待审术语 / 待核验专名四类存疑项聚合成一张清单，一键复制或下载 .md 发给作者定夺（纯本地、不花 token）</td></tr>
         <tr><td><b>🎯 逐句评分（v4.50 新）</b></td><td>整篇修订译文逐句打分（红 1-2 / 黄 3 / 绿 4-5 徽章）+ 短评，点「应用重写」单句精修并写回（手动触发，不自动烧 token）</td></tr>
+        <tr><td><b>⚖️ 双模型分工（v4.51 新）</b></td><td>设置页可指定「初稿模型」与「审校模型」：便宜模型翻初稿，强模型做批评/精修/校对，省 token（留空 = 不分工，行为不变）</td></tr>
+        <tr><td><b>🎲 抽样质检（v4.51 新）</b></td><td>长文不全文复查：按 10% 抽样（5~30 句、少于 50 句全查），一次调用核查漏译/误译/术语不一致，给出错误率 + 交付建议（手动触发，不自动烧 token）</td></tr>
         </tbody>
       </table>
       <div class="alert i" style="margin-top:12px">
@@ -1854,6 +1875,8 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
           <tr><td><b>近期</b></td><td><b>定稿快照留痕</b>：复制/导出自动留快照，可回看历史、一键回填</td><td>✅ 已上线（v4.49.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>疑问清单</b>：四类存疑项聚合导出 Markdown 发作者</td><td>✅ 已上线（v4.50.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>逐句评分</b>：逐句打分徽章 + 单句重写指令</td><td>✅ 已上线（v4.50.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>双模型分工</b>：初稿/审校分开选模型，省着用</td><td>✅ 已上线（v4.51.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>抽样质检</b>：长文抽样 10% 核查，给出错误率与交付建议</td><td>✅ 已上线（v4.51.0）</td></tr>
           <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
         </tbody>
       </table>
@@ -1908,5 +1931,6 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
 <script src="js/22-snapshot.js"></script>
 <script src="js/23-asklist.js"></script>
 <script src="js/24-sentence-score.js"></script>
+<script src="js/25-sample-qa.js"></script>
 </body>
 </html>

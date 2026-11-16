@@ -250,7 +250,7 @@ async function tsRun(){
     const { text, usage } = await callModel(sys, user, (d, full) => {
       tsRender(full);
       updateProgress(full.length, tsTotal, 'ts-');
-    }, 'trans');
+    }, 'trans', draftOv());
     hideProgress('ts-');
     TS_LAST_OUT = text;
     $('#ts-out').style.whiteSpace = '';

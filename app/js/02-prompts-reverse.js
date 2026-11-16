@@ -423,16 +423,16 @@ function renderReverseResult(p, srcLabel, dstLabel, source, sourceFile){
 }
 
 /* ── 简单非流式模型调用（用于反推，避免中间态闪烁） ── */
-async function callModelSimple(sys, user, maxTok, extSignal){
+async function callModelSimple(sys, user, maxTok, extSignal, ov){
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), (CFG.timeout || 180) * 1000);
   /* v4.34.0：支持外部中断信号——三段流水线「中断/关闭」立即掐断，不再干等超时 */
   if(extSignal){ if(extSignal.aborted) ctrl.abort(); else extSignal.addEventListener('abort', () => ctrl.abort(), { once:true }); }
   try{
-    const r = await fetch(CFG.baseUrl.replace(/\/+$/,'') + '/chat/completions', {
+    const r = await fetch(((ov && ov.baseUrl) || CFG.baseUrl).replace(/\/+$/,'') + '/chat/completions', {
       method:'POST', signal: ctrl.signal,
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + CFG.apiKey },
-      body: JSON.stringify({ model: CFG.model, messages:[{role:'system',content:sys},{role:'user',content:user}], temperature:0.4, max_tokens:maxTok||1500, stream:false })
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + ((ov && ov.apiKey) || CFG.apiKey) },
+      body: JSON.stringify({ model: (ov && ov.model) || CFG.model, messages:[{role:'system',content:sys},{role:'user',content:user}], temperature:0.4, max_tokens:maxTok||1500, stream:false })
     });
     if(!r.ok){ const t = await r.text(); throw new Error('HTTP ' + r.status + ' — ' + t.slice(0,200)); }
     const j = await r.json();

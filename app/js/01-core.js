@@ -1,5 +1,5 @@
 /* ═══════════ 配置与状态 ═══════════ */
-const APP_VERSION = '4.50.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
+const APP_VERSION = '4.51.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
 /* 左下角版本显示（v4.39.1） */
 (function(){
   function addVerTag(){
@@ -17,7 +17,7 @@ const LS = {
 };
 const DEF_CFG = {
   baseUrl:'https://api.deepseek.com', model:'deepseek-chat', apiKey:'',
-  maxTok:16000, maxInChars:80000, temp:0.3, timeout:180, webhook:''
+  maxTok:16000, maxInChars:80000, temp:0.3, timeout:180, webhook:'', draftBaseUrl:'', draftModel:'', auditBaseUrl:'', auditModel:''
 };
 let CFG = load(LS.cfg, DEF_CFG);
 let TERMS = load(LS.terms, []);
@@ -245,3 +245,6 @@ const LS_PROMPTS = 'tp.prompts';
 const PROMPTS_DEF = { version: 1, prompts: [] };
 let PROMPTS = load(LS_PROMPTS, PROMPTS_DEF);
 if(!PROMPTS.prompts) PROMPTS.prompts = [];
+/* P2 双模型分工：初稿/审校模型覆盖（空 = 用主模型，不分工） */
+function draftOv(){ return { baseUrl: CFG.draftBaseUrl || CFG.baseUrl, model: CFG.draftModel || CFG.model }; }
+function auditOv(){ return { baseUrl: CFG.auditBaseUrl || CFG.baseUrl, model: CFG.auditModel || CFG.model }; }
