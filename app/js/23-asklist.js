@@ -62,6 +62,11 @@
       L.push((i+1) + '. ' + t.foreign + ' → ' + (t.zh || '（未定）') + (t.type ? '（' + t.type + '）' : '') + (t.note ? ' · ' + t.note : ''));
     });
     L.push('');
+    var wv = (typeof waiverAll === 'function') ? waiverAll() : [];
+    L.push('## 五、豁免登记（' + wv.length + ' 条）');
+    if(!wv.length){ L.push('（无）'); }
+    wv.forEach(function(w, i){ L.push((i+1) + '. [' + w.type + '] ' + w.key + ' — ' + w.reason + '（' + new Date(w.ts).toISOString().slice(0,10) + '）'); });
+    L.push('');
     return L.join(NL);
   }
 

@@ -76,6 +76,7 @@ function plHtml(){
     '  <span class="ef-chip" data-pls="3">③ 精修译文</span>',
     '</div>',
     '<div id="pl-status" style="font-size:12px;color:var(--tx3);margin-bottom:8px">准备就绪：点「开始第 1 段」出初稿。</div>',
+    '<div id="pl-contract" style="font-size:12px;color:var(--tx2);margin-bottom:6px;line-height:1.8;background:var(--bg2);padding:6px 10px;border-radius:4px"></div>',
     '<div id="pl-box" style="min-height:120px;max-height:46vh;overflow:auto;padding:12px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;font-size:14px;line-height:1.8;white-space:pre-wrap"></div>',
     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">',
     '  <button class="btn pri sm" id="pl-next">▶ 开始第 1 段（翻译初稿）</button>',
@@ -101,6 +102,16 @@ function plCur(){
 }
 function plSetBox(t){ $('#pl-box').textContent = t; }
 function plStatus(t){ $('#pl-status').textContent = t; }
+function plContract(n){   /* v4.52.0：契约可见化——每段产物盒三行说明 */
+  const box = $('#pl-contract'); if(!box) return;
+  const R = [
+    ['输入：外文原文', '产物：翻译初稿', '停止条件：初稿生成完停下，等你过目'],
+    ['输入：原文 + 初稿 + 术语表（白名单，不带翻译自辩）', '产物：批评清单（只挑毛病、不改译文）', '停止条件：清单生成完停下，等你过目'],
+    ['输入：原文 + 初稿 + 批评清单 + 术语表', '产物：精修译文', '停止条件：精修完停下，由你拍板采纳']
+  ];
+  const r = R[n] || R[0];
+  box.innerHTML = '<div style="color:var(--tx2)">' + r.map((x,i) => '<div>' + ['①②③'[i]] + ' ' + x + '</div>').join('') + '</div>';
+}
 
 /* ── 主流程：跑第 n 段（n=1,2,3） ── */
 async function plRun(n){
@@ -119,6 +130,7 @@ async function plRun(n){
   plStatus('⏳ 第 ' + n + ' 段「' + label + '」生成中…（可随时中断）');
   plSetBox('');
   plStep(n);
+  plContract(n);
 
   let sys, user, maxTok;
   if(n === 1){ sys = plSysDraft(); user = '【外文原文】\n' + src.slice(0, (CFG.maxInChars||80000)); maxTok = 8000; }
@@ -137,6 +149,7 @@ async function plRun(n){
     else if(n === 2) PL.critique = t;
     else PL.final = t;
     PL.stage = n;   /* v4.34.0：只有真正跑完才推进段号——失败/中断永远重跑同一段 */
+    if(typeof saveTask === "function") saveTask();   /* v4.52.0：流水线进度随任务持久化，刷新后能续跑 */
 
     plSetBox(t);
     plStatus('✓ 第 ' + n + ' 段「' + label + '」完成 · ' + new Date().toLocaleTimeString('zh-CN'));
@@ -168,9 +181,22 @@ function plOpen(){
   /* v4.34.0：重开弹窗先掐掉上次残留的调用并清 running，否则整块功能卡死 */
   if(PL.ctrl){ PL.cancel = true; try{ PL.ctrl.abort(); }catch(_){} }
   PL.running = false; PL.ctrl = null; PL.cancel = false;
-  PL.stage = 0; PL.draft = ''; PL.critique = ''; PL.final = '';
+  const resumed = (PL.stage > 0) && (PL.draft || PL.critique || PL.final);   /* v4.52.0：有已完成段就续跑，不重置 */
+  if(!resumed){ PL.stage = 0; PL.draft = ''; PL.critique = ''; PL.final = ''; }
   modal('⚙ 三段流水线 · 翻译 → 批评 → 精修', plHtml());
-  plStep(0);
+  plStep(PL.stage);
+  if(resumed){
+    plSetBox(plCur());
+    plStatus('上次停在第 ' + PL.stage + ' 段，点下方按钮从中断处续跑。');
+    $('#pl-copy').disabled = false;
+    const _nx = $('#pl-next');
+    if(PL.stage === 1){ _nx.textContent = '▶ 下一段：第 2 段（批评挑毛病）'; }
+    else if(PL.stage === 2){ _nx.textContent = '▶ 下一段：第 3 段（按批评精修）'; }
+    else { _nx.textContent = '✓ 三段全部完成'; _nx.disabled = true; $('#pl-send').disabled = false; }
+    plContract(PL.stage);
+  } else {
+    plContract(0);
+  }
   $('#pl-next').onclick = () => {
     if(PL.running) return;
     /* v4.34.0：段号由「已完成的内容」推导——失败/中断后重试永远重跑同一段，绝不会越位卡死；

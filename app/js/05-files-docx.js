@@ -784,9 +784,10 @@ function saveTask(){
       work: { src:$('#src').value, dst:$('#dst').value, extra:$('#extra').value, out:LAST_OUT, auditFix: (typeof AUDIT_FIX === 'object' && AUDIT_FIX && Object.keys(AUDIT_FIX).length) ? AUDIT_FIX : null },
       trans: { src:$('#ts-src').value, out:TS_LAST_OUT },
       files: { src:fileSnap(__TP_FILES.src), dst:fileSnap(__TP_FILES.dst), tsSrc:fileSnap(TS_FILES.src) },
+      pipe: (typeof PL !== "undefined" && PL && PL.stage > 0) ? { stage: PL.stage, draft: PL.draft || "", critique: PL.critique || "", final: PL.final || "" } : null,
       t: Date.now()
     };
-    const has = snap.work.src || snap.work.dst || snap.work.extra || snap.trans.src || snap.work.out || snap.files.src || snap.files.dst || snap.files.tsSrc;
+    const has = snap.work.src || snap.work.dst || snap.work.extra || snap.trans.src || snap.work.out || snap.files.src || snap.files.dst || snap.files.tsSrc || snap.pipe;
     if(has) localStorage.setItem(LS_TASK, JSON.stringify(snap));
     else localStorage.removeItem(LS_TASK);
   }catch(e){ /* localStorage 满或隐私模式：静默失败 */ }
@@ -810,6 +811,7 @@ function restoreTask(s){
     if(s.trans.src) $('#ts-src').value = s.trans.src;
     if(s.trans.out){ TS_LAST_OUT = s.trans.out; $('#ts-out').innerHTML = md(s.trans.out); $('#ts-outHint').textContent = '已恢复上次译文'; }
   }
+  if(s.pipe && typeof PL !== "undefined" && PL){ PL.stage = s.pipe.stage || 0; PL.draft = s.pipe.draft || ""; PL.critique = s.pipe.critique || ""; PL.final = s.pipe.final || ""; }
   renderFileBar('src'); renderFileBar('dst');
   tsRenderSrcBar();
   if(s.files && s.files.tsSrc) $('#ts-srcStat').textContent = '已恢复：' + s.files.tsSrc.chapters.length + ' 章节';

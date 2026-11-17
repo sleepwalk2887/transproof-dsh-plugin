@@ -111,6 +111,11 @@ function reportMarkdown(d){
   L.push('- 术语一致（专名体检）· 段落对齐 · 数字格式 · 标点对账 · 翻译腔 · 风格简报 · 错误分类 · 已修/未修流转');
   L.push('- 质量评分 = 忠实度 60 + 流畅度 40，本地计算，不花 token');
   L.push('');
+  var _wv = (typeof waiverAll === 'function') ? waiverAll() : [];
+  L.push('## 豁免登记');
+  L.push('');
+  if(_wv.length){ _wv.forEach(function(w, i){ L.push('- [' + w.type + '] ' + w.key + '：' + w.reason + '（' + new Date(w.ts).toISOString().slice(0,10) + '）'); }); }else{ L.push('- 无'); }
+  L.push('');
   L.push('---');
   L.push('');
   L.push('本报告由 TransProof 生成 · https://transproof.pages.dev · v' + APP_VERSION);

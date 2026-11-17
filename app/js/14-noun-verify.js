@@ -121,6 +121,7 @@ function renderGvPanel(){
           urlBtn +
           '<button class="btn sm" data-gv-approve="' + t.id + '">✓ 批准</button>' +
           '<button class="btn gray sm" data-gv-reject="' + t.id + '">✕ 拒绝</button>' +
+          '<button class="btn gray sm" data-gv-waive="' + t.id + '" title="登记豁免：有意这么译，体检别报">📝</button>' +
         '</div>' +
       '</div>';
     }).join('') + (list.length > MAXN ? '<div class="muted sm" style="margin-top:8px">还有 ' + (list.length - MAXN) + ' 条待核验，请到「词条管理」按状态筛「待审核」。</div>' : '');
@@ -164,6 +165,12 @@ function renderGvPanel(){
     b.onclick = () => {
       const t = GLOSS.terms.find(x => String(x.id) === String(b.dataset.gvUrl));
       if(t) gvSetUrl(t);
+    };
+  });
+  box.querySelectorAll('[data-gv-waive]').forEach(b => {
+    b.onclick = () => {
+      const t = GLOSS.terms.find(x => String(x.id) === String(b.dataset.gvWaive));
+      if(t && typeof waiverPrompt === 'function') waiverPrompt('noun', t.foreign, () => renderGvPanel());
     };
   });
   box.querySelectorAll('[data-gv-approve]').forEach(b => {

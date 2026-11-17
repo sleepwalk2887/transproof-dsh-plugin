@@ -321,7 +321,7 @@ function renderGlossTable(){
           (t.status !== 'rejected' ? '<button class="btn gray sm" data-toreject title="拒绝此条，不再注入提示词">✗ 拒绝</button>' : '') +
         '</div></td>' +
       '<td class="g-rec">' + recLabel + '</td>' +
-      '<td style="white-space:nowrap">' + (t.url ? '<a class="btn gray sm" href="' + esc(t.url) + '" target="_blank" rel="noopener" title="查看依据 URL">🔗</a> ' : '<button class="btn gray sm" data-gv-url2 title="回填依据 URL">🔗</button> ') + '<button class="btn gray sm" data-lookup title="联网查证通行译法">🔎</button> <button class="btn gray sm" data-verify title="AI 核查该条收录是否正确（v4.26.0）">🤖 核查</button> <button class="btn gray sm" data-edit>编辑</button> <button class="btn gray sm" data-merge1 title="把另一条合并进此条">⇄</button> <button class="btn gray sm" data-del title="删除此条">🗑</button></td>' +
+      '<td style="white-space:nowrap">' + (t.url ? '<a class="btn gray sm" href="' + esc(t.url) + '" target="_blank" rel="noopener" title="查看依据 URL">🔗</a> ' : '<button class="btn gray sm" data-gv-url2 title="回填依据 URL">🔗</button> ') + '<button class="btn gray sm" data-lookup title="联网查证通行译法">🔎</button> <button class="btn gray sm" data-verify title="AI 核查该条收录是否正确（v4.26.0）">🤖 核查</button> <button class="btn gray sm" data-edit>编辑</button> <button class="btn gray sm" data-merge1 title="把另一条合并进此条">⇄</button> <button class="btn gray sm" data-del title="删除此条">🗑</button> <button class="btn gray sm" data-waive title="登记豁免：有意这么译，体检别报">📝</button></td>' +
       '</tr>';
   }).join('');
   // 行事件
@@ -357,6 +357,7 @@ function renderGlossTable(){
       });
     };
     tr.querySelector('[data-edit]').onclick = () => glossEdit(id);
+    tr.querySelector('[data-waive]').onclick = () => { if(typeof waiverPrompt === 'function') waiverPrompt('term', t.foreign, () => renderGlossTable()); };
     tr.querySelector('[data-merge1]').onclick = () => glossMergeInto(id);
     tr.querySelector('[data-del]').onclick = () => glossDelete(id);
   });

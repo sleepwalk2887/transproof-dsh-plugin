@@ -542,7 +542,7 @@ function termAudit(text, srcText){
     if(!dst) return;
     if(t.indexOf(dst) >= 0){ used.push(term); return; }          // 已按术语库统一
     const inSrc = src && s && s.indexOf(src.toLowerCase()) >= 0;
-    if(inSrc) conflict.push(term);                                // 原文用了、定稿没用术语库译法
+    if(inSrc){ if(typeof waiverHas === 'function' && waiverHas('term', src)) return; conflict.push(term); }  // 原文用了、定稿没用术语库译法
   });
   // 一词多译：抓「中文（外文）」与「外文（中文）」对照
   const zh = '[\\u4e00-\\u9fff][\\u4e00-\\u9fff·]{0,11}';
@@ -559,7 +559,7 @@ function termAudit(text, srcText){
   };
   collect(new RegExp('(' + zh + ')[（(]\\s*(' + en + ')\\s*[)）]', 'g'), 2, 1);
   collect(new RegExp('(' + en + ')[（(]\\s*(' + zh + ')\\s*[)）]', 'g'), 1, 2);
-  Object.values(map).forEach(v => { if(v.cn.size >= 2) multi.push({ word: v.word, cn: [...v.cn] }); });
+  Object.values(map).forEach(v => { if(v.cn.size >= 2){ if(typeof waiverHas === 'function' && waiverHas('term', v.word)) return; multi.push({ word: v.word, cn: [...v.cn] }); } });
   return { used, conflict, multi, termTotal: TERMS.length };
 }
 
@@ -1592,6 +1592,7 @@ function renderAuditControls(){
     if(typeof efPromoteTerm === 'function') mkPromo('ef-term', '📌术语', '把这个译法存进词库并批准（锁定一致）', efPromoteTerm);
     if(typeof efPromoteBan === 'function') mkPromo('ef-ban', '🚫禁用', '禁止再使用这个译法（下次请求生效）', efPromoteBan);
     if(typeof efPromoteStyle === 'function') mkPromo('ef-style', '✍文风', '把理由存进文风偏好（下次请求自动附带）', efPromoteStyle);
+    if(typeof waiverPrompt === 'function') mkPromo('ef-waive', '📝豁免', '登记豁免：这条我故意不改，体检别报', (a) => waiverPrompt('audit', a.frag || a.fix || a.fp, () => {}));
   });
   updateFixProgress();
 }
@@ -1745,6 +1746,7 @@ function proNounAudit(outText, srcText){
   Object.keys(bind).forEach(k => {
     const s = bind[k];
     if(s.size > 1){
+      if(typeof waiverHas === 'function' && waiverHas('noun', k)) return;
       const v = [...s];
       F.push({ t: '同名异译', ev: v.join(' / '), d: '同一原文名「' + k + '」在译文里对应 ' + s.size + ' 种不同译法', sugg: v, fixable: true });
     }
@@ -1760,7 +1762,7 @@ function proNounAudit(outText, srcText){
       bare[mm[1]] = (bare[mm[1]] || 0) + 1;
     }
     Object.keys(bare).forEach(k => {
-      if(srcL.has(nz(k))) F.push({ t: '疑似未译', ev: k, d: '原文明有这个词，译文里还是原文（出现 ' + bare[k] + ' 次），可能漏译或没附中文译名', fixable: false });
+      if(srcL.has(nz(k))){ if(typeof waiverHas === 'function' && waiverHas('noun', k)) return; F.push({ t: '疑似未译', ev: k, d: '原文明有这个词，译文里还是原文（出现 ' + bare[k] + ' 次），可能漏译或没附中文译名', fixable: false }); }
     });
     // ③ 数字对不上：原文里 ≥3 位的数字（年份/数据）在译文里找不到（中文邻接也算边界）
     const numSet = s => new Set((s.match(/(?<![\d,.])\d[\d,.]{0,12}(?![\d,.])/g) || []).filter(n => n.replace(/[,.]/g, '').length >= 3));
