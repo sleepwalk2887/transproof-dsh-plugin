@@ -1159,7 +1159,7 @@ function showToneBrief(){
 /* ── 体检中心：开关 + 一键全检 ── */
 const AO_KEY = 'tp.auditOpts';
 function auditOptsGet(){
-  const d = { term:true, pnoun:true, para:true, num:true, quality:true, tone:false, style:true };
+  const d = { term:true, pnoun:true, para:true, num:true, quality:true, tone:false, style:true, screen:true };
   const s = load(AO_KEY, null);
   return (s && typeof s === 'object') ? Object.assign(d, s) : d;
 }
@@ -1208,6 +1208,10 @@ function auditAll(){
   if(o.style && typeof styleAudit === 'function'){
     const r = styleAudit(target);
     add('翻译腔', r.issueCount || 0, r.clean ? '干净' : '句末落「的」/「的」堆叠/套话直译', 'showStyleAudit');
+  }
+  if(o.screen && typeof ruleScreen === 'function'){
+    const r = ruleScreen(target);
+    add('规则预筛', r.total || 0, r.total ? ('重复标点 / 数字单位粘连 ' + r.total + ' 处') : '干净', 'showRuleScreen');
   }
   if(o.quality && typeof qualityScore === 'function'){
     const q = qualityScore(src, target);
@@ -2080,3 +2084,35 @@ function syncOutView(){
   if(TRI_INLINE_ON) renderTriInline();
 }
 $$('#view-seg [data-view]').forEach(b => { b.onclick = () => setOutView(b.dataset.view); });
+
+
+/* ═══════════ 规则预筛（v4.53 本地正则零 token：重复标点扩展 + 数字单位粘连）═══════════ */
+function ruleScreen(text){
+  const str = String(text || '');
+  const items = [];
+  const rp = (str.match(/[！？!?]{2,}/g) || []);
+  if(rp.length){
+    items.push({ rule:'重复标点', n: rp.length, detail:'连续感叹号/问号（！！ / ？？）', ex: rp.slice(0,3) });
+  }
+  const UNIT_RE = /(\d+)(kg|km|ml|cm|mm|gb|mb|kb|ghz|mhz|hz|kw|kj|kcal|mg|ms|ns)\b/gi;
+  const nu = [];
+  let m;
+  while((m = UNIT_RE.exec(str)) !== null){
+    nu.push(m[0]);
+    if(nu.length >= 100) break;
+  }
+  if(nu.length){
+    items.push({ rule:'数字单位粘连', n: nu.length, detail:'数字与单位连写（如 3kg 建议写 3 kg）', ex: nu.slice(0,3) });
+  }
+  return { items, total: items.reduce((a, x) => a + x.n, 0) };
+}
+function showRuleScreen(){
+  const proof = (typeof extractProofText === 'function' ? extractProofText(LAST_OUT) : '') || (($('#dst') || {}).value || '').trim();
+  if(!proof){ toast('先把译文贴进译文框，才能预筛', 'e'); return; }
+  const r = ruleScreen(proof);
+  const chip = 'display:inline-block;padding:3px 10px;border-radius:999px;background:var(--bg2);border:1px solid var(--bd);font-size:12px;color:var(--tx2)';
+  const body = r.items.length
+    ? r.items.map(it => '<div class="seg" style="margin-top:8px"><b>' + esc(it.rule) + '</b> <span style="' + chip + '">' + it.n + ' 处</span><div style="font-size:12.5px;color:var(--tx2);margin-top:4px">' + esc(it.detail) + '</div><div style="font-size:12.5px;color:var(--err);margin-top:2px">例：' + esc(it.ex.join('、')) + '</div></div>').join('')
+    : '<div class="alert ok">✓ 规则预筛通过：没有连续感叹/问号、没有数字单位连写。</div>';
+  modal('🧹 规则预筛（本地正则 · 零 token）', body + '<div class="hint" style="margin-top:10px">纯本地机械预筛，只抓「规则能确定」的格式硬伤，不判断语义。</div>');
+}
