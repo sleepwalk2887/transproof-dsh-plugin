@@ -768,6 +768,7 @@ header::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;z-in
       <button class="btn gray sm" id="btn-ask" title="把疑难句、待定夺译法、待审术语、待核验专名四类存疑项聚合成一张清单，复制或下载发给作者（纯本地、不花 token）">📋 疑问清单</button>
       <button class="btn gray sm" id="btn-score" title="把整篇修订译文逐句打分（红/黄/绿徽章）+ 短评，点「应用重写」单句精修并写回（手动触发，一次调用评分、一次调用重写一句，不自动烧 token）">🎯 逐句评分</button>
       <button class="btn gray sm" id="btn-sample" title="从修订译文按 10% 抽样（5~30 句、少于 50 句全查），一次调用核查漏译/误译/术语不一致，给出错误率与交付建议（手动触发，不自动烧 token）">🎲 抽样质检</button>
+      <button class="btn gray sm" id="btn-layered" title="把逐句评分结果按把握度分成红/黄/绿三档，低把握优先人工过；红黄档可一键加入疑问清单导出问作者（纯复用评分数据，零 token）">📊 分层审校</button>
     </span>
     <span class="tb-sep"></span>
     <span class="tb-g"><span class="tb-cap">📥 文档</span>
@@ -1726,6 +1727,7 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
         <tr><td><b>🎲 抽样质检（v4.51 新）</b></td><td>长文不全文复查：按 10% 抽样（5~30 句、少于 50 句全查），一次调用核查漏译/误译/术语不一致，给出错误率 + 交付建议（手动触发，不自动烧 token）</td></tr>
         <tr><td><b>📝 豁免登记（v4.52 新）</b></td><td>术语/专名/批注三处可登记「有意不一致」+ 理由，体检不再报；疑问清单与交付报告里可看到豁免清单</td></tr>
         <tr><td><b>🧹 规则预筛（v4.53 新）</b></td><td>体检中心新增本地正则预筛：连续感叹/问号、数字与单位粘连（如 3kg→3 kg），零 token</td></tr>
+        <tr><td><b>📊 分层审校（v4.54 新）</b></td><td>按逐句评分结果分红/黄/绿三档，低把握句一键加入疑问清单导出问作者（复用评分数据，零 token）</td></tr>
         </tbody>
       </table>
       <div class="alert i" style="margin-top:12px">
@@ -1882,6 +1884,7 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
           <tr><td><b>近期</b></td><td><b>抽样质检</b>：长文抽样 10% 核查，给出错误率与交付建议</td><td>✅ 已上线（v4.51.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>豁免登记</b>：有意不一致写理由，体检跳过，导出可见</td><td>✅ 已上线（v4.52.0）</td></tr>
           <tr><td><b>近期</b></td><td><b>规则预筛</b>：连续标点、数字单位粘连本地正则预筛</td><td>✅ 已上线（v4.53.0）</td></tr>
+          <tr><td><b>近期</b></td><td><b>分层审校</b>：评分结果分档、低把握优先人工、一键入疑问清单</td><td>✅ 已上线（v4.54.0）</td></tr>
           <tr><td><b>云端版</b></td><td><b>改动留痕、可回溯</b>：每次重要校对留下不可篡改的备份点，谁改了什么、当时发生了什么都能查，不再靠猜</td><td>规划中</td></tr>
         </tbody>
       </table>
@@ -1938,5 +1941,6 @@ Entfremdung | 异化 | 马克思；与 Verfremdung「间离」区分"></textarea
 <script src="js/24-sentence-score.js"></script>
 <script src="js/25-sample-qa.js"></script>
 <script src="js/26-waiver.js"></script>
+<script src="js/27-layered-review.js"></script>
 </body>
 </html>

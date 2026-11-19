@@ -1,5 +1,5 @@
 /* ═══════════ 配置与状态 ═══════════ */
-const APP_VERSION = '4.53.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
+const APP_VERSION = '4.54.0'; // 全局版本号：TransProof.version 与 #g-version 标签共用
 /* 左下角版本显示（v4.39.1） */
 (function(){
   function addVerTag(){
@@ -15,6 +15,19 @@ const APP_VERSION = '4.53.0'; // 全局版本号：TransProof.version 与 #g-ver
 const LS = {
   cfg:'tp.cfg', terms:'tp.terms', prefs:'tp.prefs', history:'tp.history', memory:'tp.memory'
 };
+/* ── L2-1 持久层抽象：load/save 唯一读写口，可插拔（默认 localStorage，逐字节等价）── */
+const TP_STORE_MEM = (function(){
+  const m = new Map();
+  return { get(k, d){ return m.has(k) ? m.get(k) : d; }, set(k, v){ m.set(k, v); } };
+})();
+function _tpStoreLocal(){
+  return {
+    get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+    set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ toast('本地存储写入失败，可能是隐私模式或空间不足'); } }
+  };
+}
+let TP_STORE = _tpStoreLocal();
+function tpUseStore(which){ TP_STORE = (which === 'mem') ? TP_STORE_MEM : _tpStoreLocal(); return TP_STORE; }
 const DEF_CFG = {
   baseUrl:'https://api.deepseek.com', model:'deepseek-chat', apiKey:'',
   maxTok:16000, maxInChars:80000, temp:0.3, timeout:180, webhook:'', draftBaseUrl:'', draftModel:'', auditBaseUrl:'', auditModel:''
@@ -135,8 +148,8 @@ $('#tm-clear').onclick = () => {
   TM = []; save(LS.memory, TM); renderMemory(); toast('已清空翻译记忆');
 };
 
-function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
-function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ toast('本地存储写入失败，可能是隐私模式或空间不足'); } }
+function load(k, d){ return TP_STORE.get(k, d); }
+function save(k, v){ TP_STORE.set(k, v); }
 function $(s){ return document.querySelector(s); }
 function $$(s){ return [...document.querySelectorAll(s)]; }
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
